@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TreeData Navigator</title>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- JS-YAML CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+  
+  <style>
+    :root {
+      --bg-dark: #0b0f17;
+      --bg-panel: #111827;
+      --bg-card: #1f2937;
+      --bg-hover: #1b2333;
+      --border-color: #1f2937;
+      --accent-green: #10b981;
+      --accent-green-hover: #059669;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --danger-red: #ef4444;
+      --val-blue: #60a5fa;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header */
+    header {
+      height: 56px;
+      background-color: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      white-space: nowrap;
+    }
+
+    .brand i {
+      color: var(--accent-green);
+      font-size: 1.3rem;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      background-color: rgba(16, 185, 129, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      background-color: var(--accent-green);
+      border-radius: 50%;
+    }
+
+    /* Near-Files Options Bar */
+    .relative-bar {
+      background-color: #0d131f;
+      border-bottom: 1px solid var(--border-color);
+      padding: 8px 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .relative-bar select, .relative-bar input {
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      outline: none;
+    }
+
+    .relative-bar select:focus, .relative-bar input:focus {
+      border-color: var(--accent-green);
+    }
+
+    /* Multi-File Tab Bar */
+    .file-tabs-bar {
+      height: 38px;
+      background-color: #111726;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      gap: 4px;
+      overflow-x: auto;
+    }
+
+    .file-tab {
+      background-color: var(--bg-panel);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      border-bottom: none;
+      padding: 5px 12px;
+      border-top-left-radius: 6px;
+      border-top-right-radius: 6px;
+      font-size: 0.82rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+    }
+
+    .file-tab:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-main);
+    }
+
+    .file-tab.active {
+      background-color: var(--bg-dark);
+      color: var(--accent-green);
+      border-color: var(--border-color);
+      border-top: 2px solid var(--accent-green);
+      font-weight: 600;
+    }
+
+    .tab-close-btn {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-radius: 3px;
+      padding: 1px 4px;
+    }
+
+    .tab-close-btn:hover {
+      color: var(--danger-red);
+      background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Resizable Container */
+    .container {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 132px);
+      width: 100vw;
+      position: relative;
+    }
+
+    .tree-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      background-color: var(--bg-dark);
+      min-width: 220px;
+      overflow: hidden;
+      container-type: inline-size;
+    }
+
+    .resizer-divider {
+      width: 6px;
+      background-color: var(--border-color);
+      cursor: col-resize;
+      position: relative;
+      transition: background-color 0.2s ease;
+      z-index: 5;
+      flex-shrink: 0;
+    }
+
+    .resizer-divider:hover, .resizer-divider.dragging {
+      background-color: var(--accent-green);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .panel-title::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-green);
+      border-radius: 50%;
+    }
+
+    /* Add Root Button: Hidden by Default, Appears ONLY in Edit Mode */
+    .btn-add-root {
+      display: none !important;
+    }
+
+    body.edit-mode-active .btn-add-root {
+      display: inline-flex !important;
+    }
+
+    /* Buttons */
+    .btn {
+      background-color: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+    }
+
+    .btn:hover {
+      background-color: #374151;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-green {
+      background-color: var(--accent-green);
+      color: #000;
+      border: none;
+      font-weight: 600;
+    }
+
+    .btn-green:hover {
+      background-color: var(--accent-green-hover);
+    }
+
+    .btn-toggle-edit {
+      border-color: var(--border-color);
+      color: var(--text-muted);
+    }
+
+    .btn-toggle-edit.active {
+      background-color: rgba(16, 185, 129, 0.2);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .search-bar {
+      position: relative;
+      margin-bottom: 12px;
+    }
+
+    .search-bar i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .search-input {
+      width: 100%;
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      padding: 8px 12px 8px 36px;
+      border-radius: 6px;
+      color: var(--text-main);
+      outline: none;
+      font-size: 0.9rem;
+    }
+
+    .search-input:focus {
+      border-color: #374151;
+    }
+
+    .tree-actions {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .action-link {
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      text-decoration: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      white-space: nowrap;
+    }
+
+    .action-link:hover {
+      color: var(--text-main);
+    }
+
+    /* Tree View Items */
+    .tree-view {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .tree-node {
+      margin-left: 20px;
+      user-select: none;
+      position: relative;
+    }
+
+    .tree-node.root-node {
+      margin-left: 0;
+    }
+
+    .node-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      position: relative;
+      transition: background-color 0.15s ease-in-out;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .node-content:hover {
+      background-color: var(--bg-hover);
+    }
+
+    .toggle-icon {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .toggle-icon.hidden {
+      visibility: hidden;
+    }
+
+    .visibility-toggle {
+      display: none;
+      width: 20px;
+      height: 20px;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: color 0.2s;
+      flex-shrink: 0;
+    }
+
+    body.edit-mode-active .visibility-toggle {
+      display: flex;
+    }
+
+    .visibility-toggle.visible {
+      color: var(--accent-green);
+    }
+
+    .visibility-toggle.hidden-node {
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    .node-label {
+      font-size: 0.95rem;
+      color: var(--text-main);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 0 1 auto;
+      max-width: 50%;
+    }
+
+    .node-content.node-hidden .node-label,
+    .node-content.node-hidden .node-colon,
+    .node-content.node-hidden .node-value-input {
+      opacity: 0.4;
+    }
+
+    .node-colon {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+
+    .node-value-input {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--val-blue);
+      font-size: 0.9rem;
+      font-family: monospace;
+      outline: none;
+      padding: 2px 6px;
+      border-radius: 4px;
+      
+      flex: 1 1 0%;
+      min-width: 60px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      transition: all 0.2s ease;
+    }
+
+    body.edit-mode-active .node-value-input {
+      pointer-events: auto;
+    }
+
+    body.edit-mode-active .node-value-input:hover, 
+    body.edit-mode-active .node-value-input:focus {
+      border-color: var(--border-color);
+      background-color: var(--bg-dark);
+      text-overflow: clip;
+    }
+
+    .node-actions {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+
+    body.edit-mode-active .node-content:hover .node-actions {
+      display: flex;
+    }
+
+    .action-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.2s ease;
+    }
+
+    .action-btn:hover {
+      color: var(--text-main);
+      background-color: #374151;
+    }
+
+    .action-btn.delete-btn:hover {
+      color: var(--danger-red);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .node-children {
+      display: block;
+    }
+
+    .node-children.collapsed {
+      display: none;
+    }
+
+    /* Output Panel */
+    .output-panel {
+      width: 50%;
+      min-width: 25%;
+      display: flex;
+      flex-direction: column;
+      background-color: var(--bg-panel);
+      position: relative;
+      overflow: hidden;
+      transition: width 0.15s ease-out;
+    }
+
+    .output-panel.hidden-pane {
+      display: none !important;
+    }
+
+    .output-toolbar {
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 10px;
+      min-height: 56px;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tab-group {
+      background-color: var(--bg-dark);
+      padding: 3px;
+      border-radius: 6px;
+      display: flex;
+      gap: 2px;
+      border: 1px solid var(--border-color);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 5px 12px;
+      font-size: 0.85rem;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background-color: var(--accent-green);
+      color: #000;
+      font-weight: 600;
+    }
+
+    .code-container {
+      flex: 1;
+      padding: 20px;
+      overflow: auto;
+    }
+
+    #code-output {
+      font-family: "Fira Code", Monaco, Consolas, "Courier New", monospace;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      outline: none;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 100%;
+    }
+
+    .error-banner {
+      display: none;
+      background-color: rgba(239, 68, 68, 0.15);
+      color: var(--danger-red);
+      border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #file-input, #folder-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hidden Native File Inputs -->
+  <input type="file" id="file-input" multiple accept=".json,.yaml,.yml" onchange="handleFileSelect(event)">
+  <input type="file" id="folder-input" webkitdirectory directory multiple onchange="handleFolderSelect(event)">
+
+  <!-- HTML Datalist with 5 Requirement Suggestions -->
+  <datalist id="requirement-options-list">
+    <option value="Mandatory"></option>
+    <option value="Conditional"></option>
+    <option value="Recommended"></option>
+    <option value="IfImplemented"></option>
+    <option value="None"></option>
+  </datalist>
+
+  <header>
+    <div class="brand">
+      <i class="fa-solid fa-layer-group"></i>
+      <span>TreeData Navigator</span>
+    </div>
+    
+    <div class="header-actions">
+      <button class="btn" onclick="triggerFileInput()" title="Upload JSON/YAML files">
+        <i class="fa-solid fa-file-circle-plus"></i> Open File(s)
+      </button>
+      <button class="btn" onclick="triggerFolderInput()" title="Upload folder directory">
+        <i class="fa-solid fa-folder-open"></i> Open Folder
+      </button>
+
+      <button class="btn" title="Toggle Output Visibility" onclick="toggleOutputPane()">
+        <i class="fa-solid fa-eye-slash" id="pane-eye-icon"></i> <span id="pane-toggle-label">Hide Pane</span>
+      </button>
+
+      <button class="btn btn-toggle-edit" id="toggle-edit-btn" onclick="toggleEditMode()">
+        <i class="fa-solid fa-pen-to-square"></i> <span id="edit-mode-label">Edit Mode: OFF</span>
+      </button>
+      
+      <div class="badge">
+        <div class="badge-dot"></div>
+        <span id="selected-count">0 nodes included</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Dynamic Options Bar -->
+  <div class="relative-bar">
+    <i class="fa-solid fa-folder-tree" style="color: var(--accent-green); font-size: 1rem;"></i>
+    <span style="font-size: 0.82rem; font-weight: 600;">Discovered Near Files:</span>
+    
+    <select id="discovered-file-options" onchange="handleOptionSelect(this.value)">
+      <option value="">-- Scanning folder... --</option>
+    </select>
+
+    <input type="text" id="relative-file-path" placeholder="Or enter relative path (e.g. ./app.yaml)" style="width: 250px;">
+    
+    <button class="btn btn-green" onclick="loadCustomRelativeFile()">
+      <i class="fa-solid fa-download"></i> Fetch File
+    </button>
+    <button class="btn" onclick="autoDiscoverFolderFiles()" title="Re-scan directory">
+      <i class="fa-solid fa-arrows-rotate"></i> Re-Scan
+    </button>
+  </div>
+
+  <!-- Multi-File Window Tabs -->
+  <div class="file-tabs-bar" id="file-tabs-bar"></div>
+
+  <div class="container" id="main-container">
+    <div class="tree-panel" id="tree-panel">
+      <div class="panel-header">
+        <div class="panel-title">Tree Navigator</div>
+        <!-- Add Root Button appears ONLY in Edit Mode -->
+        <button class="btn btn-add-root" onclick="addRootNode()"><i class="fa-solid fa-plus-square"></i> Add Root</button>
+      </div>
+
+      <div class="search-bar">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" class="search-input" id="search-input" placeholder="Search nodes..." oninput="filterTree()">
+      </div>
+
+      <div class="tree-actions">
+        <span class="action-link" onclick="expandAll()"><i class="fa-solid fa-bars-staggered"></i> Expand All</span>
+        <span class="action-link" onclick="collapseAll()"><i class="fa-solid fa-bars"></i> Collapse All</span>
+      </div>
+
+      <div class="tree-view" id="tree-container"></div>
+    </div>
+
+    <!-- Drag Resizer Bar -->
+    <div class="resizer-divider" id="drag-resizer"></div>
+
+    <div class="output-panel" id="output-panel">
+      <div class="output-toolbar">
+        <div class="toolbar-group">
+          <div class="tab-group">
+            <button class="tab-btn active" id="tab-yaml" onclick="switchFormat('yaml')">YAML</button>
+            <button class="tab-btn" id="tab-json" onclick="switchFormat('json')">JSON</button>
+          </div>
+        </div>
+
+        <div class="toolbar-group">
+          <button class="btn" onclick="copyToClipboard()"><i class="fa-regular fa-copy"></i> Copy</button>
+          <button class="btn" onclick="downloadFile()"><i class="fa-solid fa-download"></i> Save file</button>
+          <button class="btn btn-green" onclick="saveVersion()"><i class="fa-solid fa-bookmark"></i> Save Version</button>
+        </div>
+      </div>
+
+      <div class="error-banner" id="error-banner">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span id="error-message">Invalid syntax</span>
+      </div>
+
+      <div class="code-container">
+        <div id="code-output" contenteditable="true" spellcheck="false" oninput="handleCodeInput()"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isEditMode = false;
+    let isPaneHidden = false;
+
+    // Multi-File Window State Manager
+    let filesState = [];
+    let activeFileId = null;
+    let isUpdatingFromTree = false;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initResizer();
+      autoDiscoverFolderFiles();
+    });
+
+    // --- AUTOMATIC DYNAMIC DISCOVERY OF NEARBY FILES ---
+    async function autoDiscoverFolderFiles() {
+      const selectMenu = document.getElementById("discovered-file-options");
+      selectMenu.innerHTML = `<option value="">-- Discovering nearby files... --</option>`;
+
+      const candidates = [
+        "config.json",
+        "config.yaml",
+        "config.yml",
+        "settings.json",
+        "settings.yaml",
+        "data.json",
+        "data.yaml",
+        "manifest.json",
+        "package.json"
+      ];
+
+      const discovered = [];
+
+      for (let relPath of candidates) {
+        const success = await fetchRelativeFile(relPath, false);
+        if (success) {
+          discovered.push(relPath);
+        }
+      }
+
+      selectMenu.innerHTML = "";
+      if (discovered.length > 0) {
+        const defaultOpt = document.createElement("option");
+        defaultOpt.value = "";
+        defaultOpt.textContent = `-- Select Discovered File (${discovered.length} found) --`;
+        selectMenu.appendChild(defaultOpt);
+
+        discovered.forEach(file => {
+          const opt = document.createElement("option");
+          opt.value = file;
+          opt.textContent = file;
+          selectMenu.appendChild(opt);
+        });
+      } else {
+        const noneOpt = document.createElement("option");
+        noneOpt.value = "";
+        noneOpt.textContent = "-- No nearby files detected --";
+        selectMenu.appendChild(noneOpt);
+      }
+
+      if (filesState.length === 0) {
+        const defaultData = [
+          {
+            id: "1",
+            label: "property_specification",
+            value: null,
+            checked: true,
+            expanded: true,
+            children: [
+              { id: "2", label: "ReadRequirement", value: "Mandatory", checked: true, expanded: true, children: [] },
+              { id: "3", label: "WriteRequirement", value: "Recommended", checked: true, expanded: true, children: [] },
+              { id: "4", label: "description", value: "Property requirements definition", checked: true, expanded: true, children: [] }
+            ]
+          }
+        ];
+        createNewFileTab("sample_requirements.yaml", defaultData, 'yaml');
+      }
+    }
+
+    function handleOptionSelect(selectedValue) {
+      if (selectedValue) {
+        fetchRelativeFile(selectedValue, true);
+      }
+    }
+
+    function loadCustomRelativeFile() {
+      const path = document.getElementById("relative-file-path").value.trim();
+      if (!path) {
+        alert("Please enter a relative path (e.g. ./config.json or settings.yaml)");
+        return;
+      }
+      fetchRelativeFile(path, true);
+    }
+
+    async function fetchRelativeFile(relativePath, showAlertOnError = true) {
+      try {
+        const res = await fetch(relativePath);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const content = await res.text();
+        let parsed = null;
+        let format = (relativePath.endsWith(".json")) ? "json" : "yaml";
+
+        if (format === 'yaml') {
+          parsed = window.jsyaml ? jsyaml.load(content) : JSON.parse(content);
+        } else {
+          parsed = JSON.parse(content);
+        }
+
+        if (typeof parsed === 'object' && parsed !== null) {
+          const fileName = relativePath.split('/').pop();
+          
+          const existing = filesState.find(f => f.name === fileName);
+          if (existing) {
+            switchToFileTab(existing.id);
+            return true;
+          }
+
+          const convertedTree = objectToTreeData(parsed, []);
+          createNewFileTab(fileName, convertedTree, format);
+          return true;
+        }
+      } catch (err) {
+        if (showAlertOnError) {
+          alert(`Could not fetch relative file (${relativePath}): ${err.message}`);
+        }
+      }
+      return false;
+    }
+
+    // --- MULTI-FILE TAB WINDOW CONTROLS ---
+    function createNewFileTab(fileName, treeStructure, format = 'yaml') {
+      const fileId = "file_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
+      
+      const newFile = {
+        id: fileId,
+        name: fileName,
+        treeData: JSON.parse(JSON.stringify(treeStructure)),
+        format: format
+      };
+
+      filesState.push(newFile);
+      switchToFileTab(fileId);
+    }
+
+    function switchToFileTab(fileId) {
+      activeFileId = fileId;
+      const currentFile = getActiveFile();
+
+      if (currentFile) {
+        renderTabsUI();
+        switchFormat(currentFile.format, false);
+        renderTree(currentFile.treeData);
+        updateOutputFromTree();
+      }
+    }
+
+    function closeFileTab(e, fileId) {
+      e.stopPropagation();
+      if (filesState.length <= 1) {
+        alert("At least one tab window must remain open.");
+        return;
+      }
+
+      filesState = filesState.filter(f => f.id !== fileId);
+      
+      if (activeFileId === fileId) {
+        switchToFileTab(filesState[filesState.length - 1].id);
+      } else {
+        renderTabsUI();
+      }
+    }
+
+    function renderTabsUI() {
+      const tabsBar = document.getElementById("file-tabs-bar");
+      tabsBar.innerHTML = "";
+
+      filesState.forEach(file => {
+        const tabEl = document.createElement("div");
+        tabEl.className = `file-tab ${file.id === activeFileId ? 'active' : ''}`;
+        tabEl.onclick = () => switchToFileTab(file.id);
+
+        const isJson = file.name.endsWith(".json");
+        const iconClass = isJson ? "fa-code" : "fa-file-lines";
+
+        tabEl.innerHTML = `
+          <i class="fa-solid ${iconClass}"></i>
+          <span>${file.name}</span>
+          <i class="fa-solid fa-xmark tab-close-btn" onclick="closeFileTab(event, '${file.id}')"></i>
+        `;
+
+        tabsBar.appendChild(tabEl);
+      });
+    }
+
+    function getActiveFile() {
+      return filesState.find(f => f.id === activeFileId);
+    }
+
+    // --- NATIVE FILE & FOLDER UPLOADS ---
+    function triggerFileInput() {
+      document.getElementById("file-input").click();
+    }
+
+    function triggerFolderInput() {
+      document.getElementById("folder-input").click();
+    }
+
+    function handleFileSelect(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+      Array.from(files).forEach(file => processUploadedFile(file));
+      event.target.value = "";
+    }
+
+    function handleFolderSelect(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      Array.from(files).forEach(file => {
+        if (file.name.endsWith(".json") || file.name.endsWith(".yaml") || file.name.endsWith(".yml")) {
+          processUploadedFile(file);
+        }
+      });
+      event.target.value = "";
+    }
+
+    function processUploadedFile(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const content = e.target.result;
+        let parsed = null;
+        let format = file.name.endsWith(".json") ? "json" : "yaml";
+
+        try {
+          if (format === 'yaml') {
+            parsed = window.jsyaml ? jsyaml.load(content) : JSON.parse(content);
+          } else {
+            parsed = JSON.parse(content);
+          }
+
+          if (typeof parsed === 'object' && parsed !== null) {
+            const convertedTree = objectToTreeData(parsed, []);
+            createNewFileTab(file.name, convertedTree, format);
+          }
+        } catch (err) {
+          alert(`Error parsing ${file.name}: ${err.message}`);
+        }
+      };
+
+      reader.readAsText(file);
+    }
+
+    // --- PANE RESIZE & VISIBILITY CONTROLS ---
+    function toggleOutputPane() {
+      const panel = document.getElementById("output-panel");
+      const divider = document.getElementById("drag-resizer");
+      const icon = document.getElementById("pane-eye-icon");
+      const label = document.getElementById("pane-toggle-label");
+
+      isPaneHidden = !isPaneHidden;
+
+      if (isPaneHidden) {
+        panel.classList.add("hidden-pane");
+        divider.style.display = "none";
+        icon.className = "fa-solid fa-eye";
+        label.textContent = "Show Pane";
+      } else {
+        panel.classList.remove("hidden-pane");
+        divider.style.display = "block";
+        icon.className = "fa-solid fa-eye-slash";
+        label.textContent = "Hide Pane";
+      }
+    }
+
+    function initResizer() {
+      const resizer = document.getElementById("drag-resizer");
+      const outputPanel = document.getElementById("output-panel");
+      const container = document.getElementById("main-container");
+
+      let x = 0;
+      let outputWidth = 0;
+
+      const mouseDownHandler = function (e) {
+        x = e.clientX;
+        outputWidth = outputPanel.getBoundingClientRect().width;
+        resizer.classList.add("dragging");
+        outputPanel.style.transition = "none";
+
+        document.addEventListener("mousemove", mouseMoveHandler);
+        document.addEventListener("mouseup", mouseUpHandler);
+      };
+
+      const mouseMoveHandler = function (e) {
+        const dx = e.clientX - x;
+        const containerWidth = container.getBoundingClientRect().width;
+        let newWidth = ((outputWidth - dx) / containerWidth) * 100;
+
+        newWidth = Math.max(25, Math.min(newWidth, 85));
+        outputPanel.style.width = `${newWidth}%`;
+      };
+
+      const mouseUpHandler = function () {
+        resizer.classList.remove("dragging");
+        outputPanel.style.transition = "width 0.15s ease-out";
+
+        document.removeEventListener("mousemove", mouseMoveHandler);
+        document.removeEventListener("mouseup", mouseUpHandler);
+      };
+
+      resizer.addEventListener("mousedown", mouseDownHandler);
+    }
+
+    function toggleEditMode() {
+      isEditMode = !isEditMode;
+      const btn = document.getElementById("toggle-edit-btn");
+      const label = document.getElementById("edit-mode-label");
+
+      if (isEditMode) {
+        document.body.classList.add("edit-mode-active");
+        btn.classList.add("active");
+        label.textContent = "Edit Mode: ON";
+      } else {
+        document.body.classList.remove("edit-mode-active");
+        btn.classList.remove("active");
+        label.textContent = "Edit Mode: OFF";
+      }
+    }
+
+    // --- REQUIREMENT DATALIST LOGIC ---
+    function isRequirementKey(label) {
+      return label === "ReadRequirement" || label === "WriteRequirement";
+    }
+
+    function renderValueElement(node) {
+      const displayVal = node.value !== null && node.value !== undefined ? String(node.value) : '';
+      const isReq = isRequirementKey(node.label);
+
+      return `
+        <span class="node-colon">:</span>
+        <input 
+          type="text" 
+          class="node-value-input" 
+          value="${displayVal}" 
+          title="${displayVal}"
+          placeholder="${isReq ? 'Mandatory / Recommended...' : 'value'}" 
+          ${isReq ? 'list="requirement-options-list"' : ''}
+          onchange="updateNodeValue('${node.id}', this.value)" 
+        />
+      `;
+    }
+
+    // --- RENDER TREE ---
+    function renderTree(nodes = getActiveFile()?.treeData || [], container = document.getElementById("tree-container"), isRoot = true) {
+      if (isRoot) container.innerHTML = '';
+
+      nodes.forEach(node => {
+        const nodeEl = document.createElement("div");
+        nodeEl.className = `tree-node ${isRoot ? 'root-node' : ''}`;
+        nodeEl.dataset.id = node.id;
+
+        const hasChildren = node.children && node.children.length > 0;
+
+        nodeEl.innerHTML = `
+          <div class="node-content ${!node.checked ? 'node-hidden' : ''}">
+            <span class="toggle-icon ${!hasChildren ? 'hidden' : ''}" onclick="toggleExpand('${node.id}')">
+              <i class="fa-solid ${node.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i>
+            </span>
+            <div class="visibility-toggle ${node.checked ? 'visible' : 'hidden-node'}" title="${node.checked ? 'Included in output' : 'Hidden from output'}" onclick="toggleVisibility('${node.id}')">
+              <i class="fa-solid ${node.checked ? 'fa-eye' : 'fa-eye-slash'}"></i>
+            </div>
+            <span class="node-label" title="${node.label}">${node.label}</span>
+            ${!hasChildren ? renderValueElement(node) : ''}
+            <div class="node-actions">
+              <button class="action-btn" title="Edit Label" onclick="editNodeLabel('${node.id}')"><i class="fa-solid fa-pen"></i></button>
+              <button class="action-btn" title="Add Child Node" onclick="addChildNode('${node.id}')"><i class="fa-solid fa-plus"></i></button>
+              <button class="action-btn delete-btn" title="Delete Node" onclick="deleteNode('${node.id}')"><i class="fa-regular fa-trash-can"></i></button>
+            </div>
+          </div>
+          ${hasChildren ? `<div class="node-children ${!node.expanded ? 'collapsed' : ''}" id="children-${node.id}"></div>` : ''}
+        `;
+
+        container.appendChild(nodeEl);
+
+        if (hasChildren) {
+          renderTree(node.children, nodeEl.querySelector(`#children-${node.id}`), false);
+        }
+      });
+    }
+
+    function toggleExpand(id) {
+      const file = getActiveFile();
+      const node = findNodeById(file.treeData, id);
+      if (node) {
+        node.expanded = !node.expanded;
+        renderTree();
+      }
+    }
+
+    function toggleVisibility(id) {
+      if (!isEditMode) return;
+      const file = getActiveFile();
+      const node = findNodeById(file.treeData, id);
+      if (node) {
+        const newCheckedState = !node.checked;
+        setSubtreeVisibility(node, newCheckedState);
+        if (newCheckedState) ensureParentsVisible(file.treeData, id);
+
+        updateOutputFromTree();
+        renderTree();
+      }
+    }
+
+    function setSubtreeVisibility(node, state) {
+      node.checked = state;
+      if (node.children) node.children.forEach(c => setSubtreeVisibility(c, state));
+    }
+
+    function ensureParentsVisible(nodes, targetId) {
+      for (let node of nodes) {
+        if (node.id === targetId) return true;
+        if (node.children && node.children.length > 0) {
+          if (ensureParentsVisible(node.children, targetId)) {
+            node.checked = true;
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function editNodeLabel(id) {
+      if (!isEditMode) return;
+      const file = getActiveFile();
+      const node = findNodeById(file.treeData, id);
+      if (node) {
+        const newLabel = prompt("Edit node label/key:", node.label);
+        if (newLabel && newLabel.trim() !== "") {
+          node.label = newLabel.trim();
+          renderTree();
+          updateOutputFromTree();
+        }
+      }
+    }
+
+    function updateNodeValue(id, rawValue) {
+      if (!isEditMode) return;
+      const file = getActiveFile();
+      const node = findNodeById(file.treeData, id);
+      if (node) {
+        node.value = parseTypedValue(rawValue);
+        renderTree();
+        updateOutputFromTree();
+      }
+    }
+
+    function addChildNode(parentId) {
+      if (!isEditMode) return;
+      const label = prompt("Enter new child node key/name (e.g., ReadRequirement or WriteRequirement):");
+      if (!label) return;
+
+      const file = getActiveFile();
+      const parentNode = findNodeById(file.treeData, parentId);
+      if (parentNode) {
+        if (!parentNode.children) parentNode.children = [];
+        parentNode.value = null;
+        
+        const initialVal = isRequirementKey(label) ? "Recommended" : "";
+
+        parentNode.children.push({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+          label: label,
+          value: initialVal,
+          checked: parentNode.checked,
+          expanded: true,
+          children: []
+        });
+        parentNode.expanded = true;
+        renderTree();
+        updateOutputFromTree();
+      }
+    }
+
+    function deleteNode(id) {
+      if (!isEditMode) return;
+      if (!confirm("Are you sure you want to delete this node?")) return;
+      const file = getActiveFile();
+      file.treeData = deleteNodeRecursive(file.treeData, id);
+      renderTree();
+      updateOutputFromTree();
+    }
+
+    function deleteNodeRecursive(nodes, id) {
+      return nodes.filter(node => {
+        if (node.id === id) return false;
+        if (node.children) node.children = deleteNodeRecursive(node.children, id);
+        return true;
+      });
+    }
+
+    function addRootNode() {
+      if (!isEditMode) {
+        alert("Please enable Edit Mode first to add nodes.");
+        return;
+      }
+      const label = prompt("Enter root node key:", "new_key");
+      if (label) {
+        const file = getActiveFile();
+        file.treeData.push({
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 4),
+          label: label,
+          value: "",
+          checked: true,
+          expanded: true,
+          children: []
+        });
+        renderTree();
+        updateOutputFromTree();
+      }
+    }
+
+    function expandAll() {
+      const file = getActiveFile();
+      setExpandedRecursive(file.treeData, true);
+      renderTree();
+    }
+
+    function collapseAll() {
+      const file = getActiveFile();
+      setExpandedRecursive(file.treeData, false);
+      renderTree();
+    }
+
+    function setExpandedRecursive(nodes, value) {
+      nodes.forEach(node => {
+        node.expanded = value;
+        if (node.children) setExpandedRecursive(node.children, value);
+      });
+    }
+
+    function findNodeById(nodes, id) {
+      for (let node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+          const found = findNodeById(node.children, id);
+          if (found) return found;
+        }
+      }
+      return null;
+    }
+
+    function parseTypedValue(val) {
+      if (val === "") return "";
+      if (val === "true") return true;
+      if (val === "false") return false;
+      if (val === "null") return null;
+      if (!isNaN(val) && val.trim() !== "") return Number(val);
+      return val;
+    }
+
+    function filterTree() {
+      const term = document.getElementById("search-input").value.toLowerCase();
+      const labels = document.querySelectorAll(".node-content");
+      labels.forEach(el => {
+        const text = el.querySelector(".node-label").textContent.toLowerCase();
+        el.style.display = (term === "" || text.includes(term)) ? "flex" : "none";
+      });
+    }
+
+    function countSelected(nodes) {
+      let count = 0;
+      nodes.forEach(node => {
+        if (node.checked) count++;
+        if (node.children) count += countSelected(node.children);
+      });
+      return count;
+    }
+
+    function buildExportObject(nodes) {
+      let obj = {};
+      nodes.forEach(node => {
+        if (node.checked) {
+          if (node.children && node.children.length > 0) {
+            obj[node.label] = buildExportObject(node.children);
+          } else {
+            obj[node.label] = node.value !== undefined ? node.value : {};
+          }
+        }
+      });
+      return obj;
+    }
+
+    function updateOutputFromTree() {
+      isUpdatingFromTree = true;
+      hideError();
+      const file = getActiveFile();
+      if (!file) return;
+
+      const exportedData = buildExportObject(file.treeData);
+      const codeOutput = document.getElementById("code-output");
+
+      if (file.format === 'yaml') {
+        codeOutput.innerText = window.jsyaml ? jsyaml.dump(exportedData) : JSON.stringify(exportedData, null, 2);
+      } else {
+        codeOutput.innerText = JSON.stringify(exportedData, null, 2);
+      }
+
+      document.getElementById("selected-count").textContent = `${countSelected(file.treeData)} nodes included`;
+      isUpdatingFromTree = false;
+    }
+
+    function handleCodeInput() {
+      if (isUpdatingFromTree) return;
+
+      const file = getActiveFile();
+      const codeText = document.getElementById("code-output").innerText;
+      let parsedData = null;
+
+      try {
+        if (file.format === 'yaml') {
+          parsedData = jsyaml.load(codeText);
+        } else {
+          parsedData = JSON.parse(codeText);
+        }
+
+        hideError();
+
+        if (typeof parsedData === 'object' && parsedData !== null) {
+          file.treeData = objectToTreeData(parsedData, file.treeData);
+          renderTree();
+          document.getElementById("selected-count").textContent = `${countSelected(file.treeData)} nodes included`;
+        }
+      } catch (e) {
+        showError(e.message || "Invalid syntax format");
+      }
+    }
+
+    function objectToTreeData(obj, existingTree = []) {
+      const result = [];
+
+      for (let key in obj) {
+        const existingNode = findNodeByLabel(existingTree, key);
+        const val = obj[key];
+        const isObjectOrArray = typeof val === 'object' && val !== null && Object.keys(val).length > 0;
+
+        const newId = existingNode ? existingNode.id : Date.now().toString() + Math.random().toString(36).substr(2, 4);
+
+        result.push({
+          id: newId,
+          label: key,
+          value: !isObjectOrArray ? val : null,
+          checked: true,
+          expanded: existingNode ? existingNode.expanded : true,
+          children: isObjectOrArray ? objectToTreeData(val, existingNode ? existingNode.children : []) : []
+        });
+      }
+
+      return result;
+    }
+
+    function findNodeByLabel(nodes, label) {
+      if (!nodes) return null;
+      return nodes.find(n => n.label === label) || null;
+    }
+
+    function switchFormat(format, triggerUpdate = true) {
+      const file = getActiveFile();
+      if (file) file.format = format;
+
+      document.getElementById("tab-yaml").classList.toggle("active", format === 'yaml');
+      document.getElementById("tab-json").classList.toggle("active", format === 'json');
+      if (triggerUpdate) updateOutputFromTree();
+    }
+
+    function showError(msg) {
+      const banner = document.getElementById("error-banner");
+      document.getElementById("error-message").textContent = msg;
+      banner.style.display = "flex";
+    }
+
+    function hideError() {
+      document.getElementById("error-banner").style.display = "none";
+    }
+
+    function copyToClipboard() {
+      const code = document.getElementById("code-output").innerText;
+      navigator.clipboard.writeText(code).then(() => alert("Copied to clipboard!"));
+    }
+
+    function downloadFile() {
+      const file = getActiveFile();
+      const content = document.getElementById("code-output").innerText;
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = file ? file.name : `tree-data.${file.format}`;
+      link.click();
+    }
+
+    function saveVersion() {
+      alert("Version saved successfully!");
+    }
+  </script>
+</body>
+</html>
