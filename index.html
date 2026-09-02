@@ -1100,22 +1100,27 @@
     });
 
     async function autoLoadDefaultExcelWorkbook() {
-      try {
-        showLoading(true, `Loading ${DEFAULT_EXCEL_FILENAME}...`);
-        const response = await fetch(DEFAULT_EXCEL_FILENAME);
-        if (!response.ok) {
-          showLoading(false);
-          return;
-        }
+  try {
+    showLoading(true, `Loading ${DEFAULT_EXCEL_FILENAME}...`);
+    
+    // تحديد المسار تلقائياً بناءً على مكان الصفحة الحالي (يعمل محلياً وعلى GitHub Pages)
+    const basePath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+    const fileUrl = basePath + DEFAULT_EXCEL_FILENAME;
 
-        const buffer = await response.arrayBuffer();
-        await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
-      } catch (err) {
-        console.warn("Autoload default workbook skipped:", err);
-      } finally {
-        showLoading(false);
-      }
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      showLoading(false);
+      return;
     }
+
+    const buffer = await response.arrayBuffer();
+    await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
+  } catch (err) {
+    console.warn("Autoload default workbook skipped:", err);
+  } finally {
+    showLoading(false);
+  }
+}
 
     function escapeHtml(str) {
       return str
