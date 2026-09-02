@@ -1100,27 +1100,26 @@
     });
 
     async function autoLoadDefaultExcelWorkbook() {
-  try {
-    showLoading(true, `Loading ${DEFAULT_EXCEL_FILENAME}...`);
-    
-    // تحديد المسار تلقائياً بناءً على مكان الصفحة الحالي (يعمل محلياً وعلى GitHub Pages)
-    const basePath = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-    const fileUrl = basePath + DEFAULT_EXCEL_FILENAME;
+      try {
+        showLoading(true, `Loading Master Specification...`);
+        
+        // استخدام الرابط المباشر (Raw URL) الخاص بمستودع الجيت هب لتجنب قيود CORS
+        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/675a55ebd505066cd11a7a2a855183ae7f265923/O-PAS-Redfish-Profile-Master.xlsx";
 
-    const response = await fetch(fileUrl);
-    if (!response.ok) {
-      showLoading(false);
-      return;
+        const response = await fetch(rawFileUrl);
+        if (!response.ok) {
+          showLoading(false);
+          return;
+        }
+
+        const buffer = await response.arrayBuffer();
+        await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
+      } catch (err) {
+        console.warn("Autoload default workbook skipped:", err);
+      } finally {
+        showLoading(false);
+      }
     }
-
-    const buffer = await response.arrayBuffer();
-    await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
-  } catch (err) {
-    console.warn("Autoload default workbook skipped:", err);
-  } finally {
-    showLoading(false);
-  }
-}
 
     function escapeHtml(str) {
       return str
@@ -2545,7 +2544,7 @@
       if (profileNameNode) finalTree.push(profileNameNode);
       if (profilePurposeNode) finalTree.push(profilePurposeNode);
       if (resourcesContainerNode.children.length > 0) finalTree.push(resourcesContainerNode);
-      if (schemasContainerNode.children.length > 0) finalTree.push(schemasContainerNode); // نقلنا السكيما لتكون بعد Resources
+      if (schemasContainerNode.children.length > 0) finalTree.push(schemasContainerNode);
 
       bubbleUpVersions(finalTree);
 
