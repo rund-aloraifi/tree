@@ -2344,7 +2344,11 @@
             const pColA = String(pLine[0] || "");
             const pColB = String(pLine[1] || "");
             const pColC = String(pLine[2] || "");
-
+            // تصفية الحرف الشارد f من جميع المستويات (رئيسية أو فرعية)
+            if (pColA.trim().toLowerCase() === "f" && !pColB.trim()) {
+              rIndex++;
+              continue;
+            }
             if (pColA.startsWith("1.1.") || pColA.startsWith("6.5.") || pColA === "Conditional" || pColA.toLowerCase().includes("extrareq") || pColA.includes("/redfish/v1/")) {
               if (pColA.includes("/redfish/v1/")) {
                 const uriVal = pColA.trim();
