@@ -2419,14 +2419,12 @@
               cur_prop_node.children.push(cur_sub_prop_node);
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
               const propName = pColA.trim();
-              if (propName !== "Members") {
                 cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
                 cur_sub_prop_node = null;
                 cur_sub_sub_prop_node = null;
                 if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
                 attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
                 resourceRoot.children.push(cur_prop_node);
-              }
             }
 
             rIndex++;
