@@ -1703,7 +1703,7 @@
         container.innerHTML = `
           <div class="empty-placeholder">
             <i class="fa-solid fa-code-compare" style="font-size: 2.2rem; color: var(--accent-primary);"></i>
-            <span>No active specification file open to build comparison matrix.</span>
+            <span>No active specification file open to  comparison matrix.</span>
           </div>
         `;
         return;
@@ -1714,7 +1714,7 @@
         return;
       }
 
-      const matrixRows = buildMultiProfileComparisonRows(file.treeData, selectedCompareProfiles, selectedVersionScope);
+      const matrixRows = MultiProfileComparisonRows(file.treeData, selectedCompareProfiles, selectedVersionScope);
 
       if (matrixRows.length === 0) {
         container.innerHTML = `<div style="color: var(--text-muted); padding: 15px;">No occurrences found for selected profiles / version.</div>`;
@@ -2419,12 +2419,17 @@
               cur_prop_node.children.push(cur_sub_prop_node);
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
               const propName = pColA.trim();
-                cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                cur_sub_prop_node = null;
-                cur_sub_sub_prop_node = null;
-                if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
-                attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
-                resourceRoot.children.push(cur_prop_node);
+              if (propName.toLowerCase() === "f" && !pColB.trim()) {
+                rIndex++;
+                continue;
+              }
+              
+              cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              cur_sub_prop_node = null;
+              cur_sub_sub_prop_node = null;
+              if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+              attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+              resourceRoot.children.push(cur_prop_node);
             }
 
             rIndex++;
