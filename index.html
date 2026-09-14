@@ -2344,11 +2344,7 @@
             const pColA = String(pLine[0] || "");
             const pColB = String(pLine[1] || "");
             const pColC = String(pLine[2] || "");
-            // تصفية الحرف الشارد f من جميع المستويات (رئيسية أو فرعية)
-            if (pColA.trim().toLowerCase() === "f" && !pColB.trim()) {
-              rIndex++;
-              continue;
-            }
+            
             if (pColA.startsWith("1.1.") || pColA.startsWith("6.5.") || pColA === "Conditional" || pColA.toLowerCase().includes("extrareq") || pColA.includes("/redfish/v1/")) {
               if (pColA.includes("/redfish/v1/")) {
                 const uriVal = pColA.trim();
@@ -2423,11 +2419,6 @@
               cur_prop_node.children.push(cur_sub_prop_node);
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
               const propName = pColA.trim();
-              if (propName.toLowerCase() === "f" && !pColB.trim()) {
-                rIndex++;
-                continue;
-              }
-              
               cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_prop_node = null;
               cur_sub_sub_prop_node = null;
