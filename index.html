@@ -2247,8 +2247,18 @@
       function attachSpecialRequirements(targetNode, specString, rowObj, versions) {
         if (!specString) return;
         const specs = parseSpecialReqs(specString);
+        
         specs.forEach(s => {
-          targetNode.children.push(createNode(s.key, s.val, false, getCellMeta(rowObj, 12), versions));
+          if (s.key === "MinCount") {
+            let membersNode = targetNode.children.find(c => c.label === "Members");
+            if (!membersNode) {
+              membersNode = createNode("Members", null, false, getCellMeta(rowObj, 0), versions);
+              targetNode.children.push(membersNode);
+            }
+            membersNode.children.push(createNode("MinCount", s.val, false, getCellMeta(rowObj, 12), versions));
+          } else {
+            targetNode.children.push(createNode(s.key, s.val, false, getCellMeta(rowObj, 12), versions));
+          }
         });
       }
 
