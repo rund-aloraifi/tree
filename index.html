@@ -1068,29 +1068,38 @@
 
     function parseSpecialReqs(specStr) {
       if (!specStr || typeof specStr !== 'string') return [];
-      const results = [];
       const raw = specStr.trim();
-      if (!raw) return results;
+      if (!raw) return [];
 
-      // فحص الكلمات المفتاحية لمستوى المورد
+      const results = [];
+
+      // مطابقة الشروط الخاصة بمستوى المورد (Resource Level)
       if (raw.includes("CreateResource")) results.push({ key: "CreateResource", val: true });
       if (raw.includes("DeleteResource")) results.push({ key: "DeleteResource", val: true });
       if (raw.includes("UpdateResource")) results.push({ key: "UpdateResource", val: true });
       if (raw.includes("MinCount1")) results.push({ key: "MinCount", val: 1 });
 
-      // فحص Replaces و ReplacedBy للخصائص
+      // محاكاة دوال getreplaces / getreplacedby والتقسيم بمسافات
       const tokens = raw.split(/\s+/);
-      tokens.forEach(t => {
-        const parts = t.split(':');
+      tokens.forEach(tok => {
+        const parts = tok.split(":");
         if (parts.length === 2) {
-          if (parts[0] === 'Replaces') results.push({ key: 'ReplacesProperty', val: parts[1] });
-          if (parts[0] === 'ReplacedBy') results.push({ key: 'ReplacedByProperty', val: parts[1] });
+          const key = parts[0].trim();
+          const val = parts[1].trim();
+
+          if (key === "Replaces") {
+            results.push({ key: "ReplacesProperty", val: val });
+          } else if (key === "ReplacedBy") {
+            results.push({ key: "ReplacedByProperty", val: val });
+          } else if (key && val) {
+            results.push({ key: key, val: val });
+          }
         }
       });
 
-      // إذا كان نصاً مخصصاً إضافياً
-      if (results.length === 0) {
-        results.push({ key: 'SpecialRequirement', val: raw });
+      // إذا وُجد نص ولم تطابقه الشروط السابقة
+      if (results.length === 0 && raw.length > 0) {
+        results.push({ key: "SpecialRequirement", val: raw });
       }
 
       return results;
@@ -2245,7 +2254,7 @@
       }
 
       function attachSpecialRequirements(targetNode, specString, rowObj, versions) {
-        if (!specString) return;
+        if (!specString || !targetNode) return;
         const specs = parseSpecialReqs(specString);
         
         specs.forEach(s => {
@@ -2255,9 +2264,13 @@
               membersNode = createNode("Members", null, false, getCellMeta(rowObj, 0), versions);
               targetNode.children.push(membersNode);
             }
-            membersNode.children.push(createNode("MinCount", s.val, false, getCellMeta(rowObj, 12), versions));
+            if (!membersNode.children.some(c => c.label === "MinCount")) {
+              membersNode.children.push(createNode("MinCount", s.val, false, getCellMeta(rowObj, 12), versions));
+            }
           } else {
-            targetNode.children.push(createNode(s.key, s.val, false, getCellMeta(rowObj, 12), versions));
+            if (!targetNode.children.some(c => c.label === s.key)) {
+              targetNode.children.push(createNode(s.key, s.val, false, getCellMeta(rowObj, 12), versions));
+            }
           }
         });
       }
@@ -2392,7 +2405,6 @@
             const pColC = String(pLine[2] || "");
             const specialReqsRaw = String(pLine[12] || "").trim();
 
-            // فحص واستبعاد الحرف f الشارد في بداية المعالجة
             if (pColA.trim().toLowerCase() === "f" && !pColB.trim()) {
               rIndex++;
               continue;
@@ -2604,7 +2616,6 @@
 
       bubbleUpVersions(finalTree);
 
-      // تنظيف نهائي لأي عقدة شاردة باسم f
       function cleanPhantomNodes(nodes) {
         return nodes.filter(node => {
           if (node.label && node.label.trim().toLowerCase() === "f") return false;
