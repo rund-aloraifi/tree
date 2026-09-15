@@ -1005,7 +1005,7 @@
               type="text" 
               id="code-search-input" 
               placeholder="Find in code..." 
-              oninput="handleCodeSearchInput(this.value)"
+              oninput="handleCodeSearchInput(this.value)" 
               onkeydown="handleCodeSearchKeydown(event)"
             />
             <span class="search-stat" id="code-search-counter"></span>
@@ -1066,6 +1066,36 @@
       'PreferredApplyTime', 'Redundancy', 'Schedule', 'Settings'
     ];
 
+    function parseSpecialReqs(specStr) {
+      if (!specStr || typeof specStr !== 'string') return [];
+      const results = [];
+      const raw = specStr.trim();
+      if (!raw) return results;
+
+      // فحص الكلمات المفتاحية لمستوى المورد
+      if (raw.includes("CreateResource")) results.push({ key: "CreateResource", val: true });
+      if (raw.includes("DeleteResource")) results.push({ key: "DeleteResource", val: true });
+      if (raw.includes("UpdateResource")) results.push({ key: "UpdateResource", val: true });
+      if (raw.includes("MinCount1")) results.push({ key: "MinCount", val: 1 });
+
+      // فحص Replaces و ReplacedBy للخصائص
+      const tokens = raw.split(/\s+/);
+      tokens.forEach(t => {
+        const parts = t.split(':');
+        if (parts.length === 2) {
+          if (parts[0] === 'Replaces') results.push({ key: 'ReplacesProperty', val: parts[1] });
+          if (parts[0] === 'ReplacedBy') results.push({ key: 'ReplacedByProperty', val: parts[1] });
+        }
+      });
+
+      // إذا كان نصاً مخصصاً إضافياً
+      if (results.length === 0) {
+        results.push({ key: 'SpecialRequirement', val: raw });
+      }
+
+      return results;
+    }
+
     function showLoading(show = true, msg = "Processing Workbook...") {
       const el = document.getElementById('loading-overlay');
       document.getElementById('loading-message').textContent = msg;
@@ -1102,8 +1132,6 @@
     async function autoLoadDefaultExcelWorkbook() {
       try {
         showLoading(true, `Loading Master Specification...`);
-        
-        // استخدام الرابط المباشر (Raw URL) الخاص بمستودع الجيت هب لتجنب قيود CORS
         const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/675a55ebd505066cd11a7a2a855183ae7f265923/O-PAS-Redfish-Profile-Master.xlsx";
 
         const response = await fetch(rawFileUrl);
@@ -1703,7 +1731,7 @@
         container.innerHTML = `
           <div class="empty-placeholder">
             <i class="fa-solid fa-code-compare" style="font-size: 2.2rem; color: var(--accent-primary);"></i>
-            <span>No active specification file open to  comparison matrix.</span>
+            <span>No active specification file open to view comparison matrix.</span>
           </div>
         `;
         return;
@@ -1714,7 +1742,7 @@
         return;
       }
 
-      const matrixRows = MultiProfileComparisonRows(file.treeData, selectedCompareProfiles, selectedVersionScope);
+      const matrixRows = buildMultiProfileComparisonRows(file.treeData, selectedCompareProfiles, selectedVersionScope);
 
       if (matrixRows.length === 0) {
         container.innerHTML = `<div style="color: var(--text-muted); padding: 15px;">No occurrences found for selected profiles / version.</div>`;
@@ -2216,6 +2244,14 @@
         });
       }
 
+      function attachSpecialRequirements(targetNode, specString, rowObj, versions) {
+        if (!specString) return;
+        const specs = parseSpecialReqs(specString);
+        specs.forEach(s => {
+          targetNode.children.push(createNode(s.key, s.val, false, getCellMeta(rowObj, 12), versions));
+        });
+      }
+
       let profileNameNode = null;
       let profilePurposeNode = null;
       let schemasContainerNode = createNode("Schemas", null, false);
@@ -2344,7 +2380,14 @@
             const pColA = String(pLine[0] || "");
             const pColB = String(pLine[1] || "");
             const pColC = String(pLine[2] || "");
-            
+            const specialReqsRaw = String(pLine[12] || "").trim();
+
+            // فحص واستبعاد الحرف f الشارد في بداية المعالجة
+            if (pColA.trim().toLowerCase() === "f" && !pColB.trim()) {
+              rIndex++;
+              continue;
+            }
+
             if (pColA.startsWith("1.1.") || pColA.startsWith("6.5.") || pColA === "Conditional" || pColA.toLowerCase().includes("extrareq") || pColA.includes("/redfish/v1/")) {
               if (pColA.includes("/redfish/v1/")) {
                 const uriVal = pColA.trim();
@@ -2382,6 +2425,7 @@
 
             if (pColA === "ResourceRequirement") {
               attachProfileRequirements(resourceRoot, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(resourceRoot, specialReqsRaw, pRowObj, rowVersions);
             } else if (pColA === "Resource MinVersion") {
               const minVersionNode = createNode("MinVersion", null, false, getCellMeta(pRowObj, 0), rowVersions);
               const minVers = [
@@ -2400,12 +2444,14 @@
               const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColB.trim()) node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_sub_prop_node.children.push(node);
             } else if (pColA.startsWith("      ") && cur_sub_prop_node) {
               const propName = pColA.trim();
               cur_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColB.trim()) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_prop_node.children.push(cur_sub_sub_prop_node);
             } else if (pColA.startsWith("   ") && cur_prop_node) {
               let propName = pColA.trim();
@@ -2416,6 +2462,7 @@
               cur_sub_sub_prop_node = null;
               if (pColB.trim()) cur_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_prop_node.children.push(cur_sub_prop_node);
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
               const propName = pColA.trim();
@@ -2424,6 +2471,7 @@
               cur_sub_sub_prop_node = null;
               if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
               resourceRoot.children.push(cur_prop_node);
             }
 
@@ -2546,7 +2594,18 @@
 
       bubbleUpVersions(finalTree);
 
-      return finalTree;
+      // تنظيف نهائي لأي عقدة شاردة باسم f
+      function cleanPhantomNodes(nodes) {
+        return nodes.filter(node => {
+          if (node.label && node.label.trim().toLowerCase() === "f") return false;
+          if (node.children && node.children.length > 0) {
+            node.children = cleanPhantomNodes(node.children);
+          }
+          return true;
+        });
+      }
+
+      return cleanPhantomNodes(finalTree);
     }
 
     function indexToColLetters(colIndex) {
