@@ -1072,42 +1072,54 @@
       if (!raw) return [];
 
       const results = [];
-      const handledTokens = new Set();
+      const handledKeys = new Set();
+      const lowerRaw = raw.toLowerCase();
 
-      const resourceFlags = [
-        { match: "CreateResource", key: "CreateResource", val: true },
-        { match: "DeleteResource", key: "DeleteResource", val: true },
-        { match: "UpdateResource", key: "UpdateResource", val: true },
-        { match: "MinCount1", key: "MinCount", val: 1 }
-      ];
+      // Independent resource-level operational keywords (supports typos like deletresource)
+      if (lowerRaw.includes("createresource")) {
+        results.push({ key: "CreateResource", val: true });
+        handledKeys.add("createresource");
+      }
+      if (lowerRaw.includes("deleteresource") || lowerRaw.includes("deletresource")) {
+        results.push({ key: "DeleteResource", val: true });
+        handledKeys.add("deleteresource");
+        handledKeys.add("deletresource");
+      }
+      if (lowerRaw.includes("updateresource")) {
+        results.push({ key: "UpdateResource", val: true });
+        handledKeys.add("updateresource");
+      }
+      if (lowerRaw.includes("mincount1")) {
+        results.push({ key: "MinCount", val: 1 });
+        handledKeys.add("mincount1");
+      }
 
-      resourceFlags.forEach(f => {
-        if (raw.includes(f.match)) {
-          results.push({ key: f.key, val: f.val });
-          handledTokens.add(f.match);
-        }
-      });
+      // Split entries across newlines, carriage returns, commas, or semicolons
+      const linesOrTokens = raw.split(/[\r\n,;]+/).map(s => s.trim()).filter(Boolean);
 
-      const tokens = raw.split(/[\s,;]+/).filter(Boolean);
+      linesOrTokens.forEach(entry => {
+        const subTokens = entry.split(/\s+/).filter(Boolean);
 
-      tokens.forEach(tok => {
-        if (handledTokens.has(tok)) return;
+        subTokens.forEach(tok => {
+          const lowerTok = tok.toLowerCase();
+          if (handledKeys.has(lowerTok)) return;
 
-        if (tok.includes(":")) {
-          const parts = tok.split(":");
-          const prefix = parts[0].trim();
-          const targetProp = parts.slice(1).join(":").trim();
+          if (tok.includes(":")) {
+            const parts = tok.split(":");
+            const prefix = parts[0].trim();
+            const targetProp = parts.slice(1).join(":").trim();
 
-          if (prefix === "Replaces") {
-            results.push({ key: "ReplacesProperty", val: targetProp });
-          } else if (prefix === "ReplacedBy") {
-            results.push({ key: "ReplacedByProperty", val: targetProp });
-          } else if (prefix && targetProp) {
-            results.push({ key: prefix, val: targetProp });
+            if (prefix.toLowerCase() === "replaces") {
+              results.push({ key: "ReplacesProperty", val: targetProp });
+            } else if (prefix.toLowerCase() === "replacedby") {
+              results.push({ key: "ReplacedByProperty", val: targetProp });
+            } else if (prefix && targetProp) {
+              results.push({ key: prefix, val: targetProp });
+            }
+          } else if (!results.some(r => r.key.toLowerCase() === lowerTok)) {
+            results.push({ key: tok, val: true });
           }
-        } else if (!results.some(r => r.key === tok)) {
-          results.push({ key: tok, val: true });
-        }
+        });
       });
 
       return results;
@@ -1661,7 +1673,7 @@
             ` : ''}
             <div class="node-actions">
               <button class="action-btn" title="Edit Label" onclick="editNodeLabel('${item.id}')"><i class="fa-solid fa-pen"></i></button>
-              <button class="action-btn" title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
+              <button class="action-btn title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
               <button class="action-btn delete-btn" title="Delete Node" onclick="deleteNode('${item.id}')"><i class="fa-regular fa-trash-can"></i></button>
             </div>
           </div>
@@ -2119,7 +2131,12 @@
       const siElements = doc.getElementsByTagName("si");
       const strings = [];
       for (let i = 0; i < siElements.length; i++) {
-        strings.push(siElements[i].textContent || "");
+        const tElements = siElements[i].getElementsByTagName("t");
+        let fullText = "";
+        for (let j = 0; j < tElements.length; j++) {
+          fullText += tElements[j].textContent || "";
+        }
+        strings.push(fullText);
       }
       return strings;
     }
@@ -2160,7 +2177,14 @@
             const ssIndex = parseInt(vEl.textContent);
             val = sharedStrings[ssIndex] || "";
           } else if (cellType === "inlineStr" && isEl) {
-            val = isEl.textContent || "";
+            const tElements = isEl.getElementsByTagName("t");
+            if (tElements.length > 0) {
+              for (let t = 0; t < tElements.length; t++) {
+                val += tElements[t].textContent || "";
+              }
+            } else {
+              val = isEl.textContent || "";
+            }
           } else if (vEl) {
             val = vEl.textContent || "";
           }
