@@ -1673,7 +1673,7 @@
             ` : ''}
             <div class="node-actions">
               <button class="action-btn" title="Edit Label" onclick="editNodeLabel('${item.id}')"><i class="fa-solid fa-pen"></i></button>
-              <button class="action-btn title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
+              <button class="action-btn" title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
               <button class="action-btn delete-btn" title="Delete Node" onclick="deleteNode('${item.id}')"><i class="fa-regular fa-trash-can"></i></button>
             </div>
           </div>
@@ -2404,6 +2404,12 @@
           const resVersions = parseVersionFlags(line);
           const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions);
 
+          // Capture any Special Requirements located directly on the resource trigger row
+          const triggerSpecialReqs = String(line[12] || "").trim();
+          if (triggerSpecialReqs) {
+            attachSpecialRequirements(resourceRoot, triggerSpecialReqs, rowObj, resVersions);
+          }
+
           let rowDescIdx = i + 1;
           if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
             const possibleDesc = String(rawRows[rowDescIdx].values[0] || "").trim();
@@ -2457,6 +2463,14 @@
             }
 
             const pColATrimLower = pColA.trim().toLowerCase();
+
+            // Extract resource-level requirements even if the row is otherwise skipped (headers, footnotes, descriptions)
+            if (specialReqsRaw) {
+              const lowerSpec = specialReqsRaw.toLowerCase();
+              if (lowerSpec.includes("createresource") || lowerSpec.includes("deleteresource") || lowerSpec.includes("deletresource") || lowerSpec.includes("updateresource") || lowerSpec.includes("mincount1")) {
+                attachSpecialRequirements(resourceRoot, specialReqsRaw, pRowObj, rowVersions);
+              }
+            }
 
             if (
               pColATrimLower === "property" ||
