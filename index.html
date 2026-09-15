@@ -1072,43 +1072,35 @@
       if (!raw) return [];
 
       const results = [];
-      const handledTokens = new Set();
 
-      const resourceFlags = [
-        { match: "CreateResource", key: "CreateResource", val: true },
-        { match: "DeleteResource", key: "DeleteResource", val: true },
-        { match: "UpdateResource", key: "UpdateResource", val: true },
-        { match: "MinCount1", key: "MinCount", val: 1 }
-      ];
+      // مطابقة الشروط الخاصة بمستوى المورد (Resource Level)
+      if (raw.includes("CreateResource")) results.push({ key: "CreateResource", val: true });
+      if (raw.includes("DeleteResource")) results.push({ key: "DeleteResource", val: true });
+      if (raw.includes("UpdateResource")) results.push({ key: "UpdateResource", val: true });
+      if (raw.includes("MinCount1")) results.push({ key: "MinCount", val: 1 });
 
-      resourceFlags.forEach(f => {
-        if (raw.includes(f.match)) {
-          results.push({ key: f.key, val: f.val });
-          handledTokens.add(f.match);
-        }
-      });
-
-      const tokens = raw.split(/[\s,;]+/).filter(Boolean);
-
+      // محاكاة دوال getreplaces / getreplacedby والتقسيم بمسافات
+      const tokens = raw.split(/\s+/);
       tokens.forEach(tok => {
-        if (handledTokens.has(tok)) return;
+        const parts = tok.split(":");
+        if (parts.length === 2) {
+          const key = parts[0].trim();
+          const val = parts[1].trim();
 
-        if (tok.includes(":")) {
-          const parts = tok.split(":");
-          const prefix = parts[0].trim();
-          const targetProp = parts.slice(1).join(":").trim();
-
-          if (prefix === "Replaces") {
-            results.push({ key: "ReplacesProperty", val: targetProp });
-          } else if (prefix === "ReplacedBy") {
-            results.push({ key: "ReplacedByProperty", val: targetProp });
-          } else if (prefix && targetProp) {
-            results.push({ key: prefix, val: targetProp });
+          if (key === "Replaces") {
+            results.push({ key: "ReplacesProperty", val: val });
+          } else if (key === "ReplacedBy") {
+            results.push({ key: "ReplacedByProperty", val: val });
+          } else if (key && val) {
+            results.push({ key: key, val: val });
           }
-        } else if (!results.some(r => r.key === tok)) {
-          results.push({ key: tok, val: true });
         }
       });
+
+      // إذا وُجد نص ولم تطابقه الشروط السابقة
+      if (results.length === 0 && raw.length > 0) {
+        results.push({ key: "SpecialRequirement", val: raw });
+      }
 
       return results;
     }
