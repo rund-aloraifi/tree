@@ -1072,54 +1072,42 @@
       if (!raw) return [];
 
       const results = [];
-      const handledKeys = new Set();
-      const lowerRaw = raw.toLowerCase();
+      const handledTokens = new Set();
 
-      // Independent resource-level operational keywords (supports typos like deletresource)
-      if (lowerRaw.includes("createresource")) {
-        results.push({ key: "CreateResource", val: true });
-        handledKeys.add("createresource");
-      }
-      if (lowerRaw.includes("deleteresource") || lowerRaw.includes("deletresource")) {
-        results.push({ key: "DeleteResource", val: true });
-        handledKeys.add("deleteresource");
-        handledKeys.add("deletresource");
-      }
-      if (lowerRaw.includes("updateresource")) {
-        results.push({ key: "UpdateResource", val: true });
-        handledKeys.add("updateresource");
-      }
-      if (lowerRaw.includes("mincount1")) {
-        results.push({ key: "MinCount", val: 1 });
-        handledKeys.add("mincount1");
-      }
+      const resourceFlags = [
+        { match: "CreateResource", key: "CreateResource", val: true },
+        { match: "DeleteResource", key: "DeleteResource", val: true },
+        { match: "UpdateResource", key: "UpdateResource", val: true },
+        { match: "MinCount1", key: "MinCount", val: 1 }
+      ];
 
-      // Split entries across newlines, carriage returns, commas, or semicolons
-      const linesOrTokens = raw.split(/[\r\n,;]+/).map(s => s.trim()).filter(Boolean);
+      resourceFlags.forEach(f => {
+        if (raw.includes(f.match)) {
+          results.push({ key: f.key, val: f.val });
+          handledTokens.add(f.match);
+        }
+      });
 
-      linesOrTokens.forEach(entry => {
-        const subTokens = entry.split(/\s+/).filter(Boolean);
+      const tokens = raw.split(/[\s,;]+/).filter(Boolean);
 
-        subTokens.forEach(tok => {
-          const lowerTok = tok.toLowerCase();
-          if (handledKeys.has(lowerTok)) return;
+      tokens.forEach(tok => {
+        if (handledTokens.has(tok)) return;
 
-          if (tok.includes(":")) {
-            const parts = tok.split(":");
-            const prefix = parts[0].trim();
-            const targetProp = parts.slice(1).join(":").trim();
+        if (tok.includes(":")) {
+          const parts = tok.split(":");
+          const prefix = parts[0].trim();
+          const targetProp = parts.slice(1).join(":").trim();
 
-            if (prefix.toLowerCase() === "replaces") {
-              results.push({ key: "ReplacesProperty", val: targetProp });
-            } else if (prefix.toLowerCase() === "replacedby") {
-              results.push({ key: "ReplacedByProperty", val: targetProp });
-            } else if (prefix && targetProp) {
-              results.push({ key: prefix, val: targetProp });
-            }
-          } else if (!results.some(r => r.key.toLowerCase() === lowerTok)) {
-            results.push({ key: tok, val: true });
+          if (prefix === "Replaces") {
+            results.push({ key: "ReplacesProperty", val: targetProp });
+          } else if (prefix === "ReplacedBy") {
+            results.push({ key: "ReplacedByProperty", val: targetProp });
+          } else if (prefix && targetProp) {
+            results.push({ key: prefix, val: targetProp });
           }
-        });
+        } else if (!results.some(r => r.key === tok)) {
+          results.push({ key: tok, val: true });
+        }
       });
 
       return results;
@@ -2131,12 +2119,7 @@
       const siElements = doc.getElementsByTagName("si");
       const strings = [];
       for (let i = 0; i < siElements.length; i++) {
-        const tElements = siElements[i].getElementsByTagName("t");
-        let fullText = "";
-        for (let j = 0; j < tElements.length; j++) {
-          fullText += tElements[j].textContent || "";
-        }
-        strings.push(fullText);
+        strings.push(siElements[i].textContent || "");
       }
       return strings;
     }
@@ -2177,14 +2160,7 @@
             const ssIndex = parseInt(vEl.textContent);
             val = sharedStrings[ssIndex] || "";
           } else if (cellType === "inlineStr" && isEl) {
-            const tElements = isEl.getElementsByTagName("t");
-            if (tElements.length > 0) {
-              for (let t = 0; t < tElements.length; t++) {
-                val += tElements[t].textContent || "";
-              }
-            } else {
-              val = isEl.textContent || "";
-            }
+            val = isEl.textContent || "";
           } else if (vEl) {
             val = vEl.textContent || "";
           }
@@ -2404,12 +2380,6 @@
           const resVersions = parseVersionFlags(line);
           const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions);
 
-          // Capture any Special Requirements located directly on the resource trigger row
-          const triggerSpecialReqs = String(line[12] || "").trim();
-          if (triggerSpecialReqs) {
-            attachSpecialRequirements(resourceRoot, triggerSpecialReqs, rowObj, resVersions);
-          }
-
           let rowDescIdx = i + 1;
           if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
             const possibleDesc = String(rawRows[rowDescIdx].values[0] || "").trim();
@@ -2463,14 +2433,6 @@
             }
 
             const pColATrimLower = pColA.trim().toLowerCase();
-
-            // Extract resource-level requirements even if the row is otherwise skipped (headers, footnotes, descriptions)
-            if (specialReqsRaw) {
-              const lowerSpec = specialReqsRaw.toLowerCase();
-              if (lowerSpec.includes("createresource") || lowerSpec.includes("deleteresource") || lowerSpec.includes("deletresource") || lowerSpec.includes("updateresource") || lowerSpec.includes("mincount1")) {
-                attachSpecialRequirements(resourceRoot, specialReqsRaw, pRowObj, rowVersions);
-              }
-            }
 
             if (
               pColATrimLower === "property" ||
