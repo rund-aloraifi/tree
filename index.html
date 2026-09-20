@@ -1165,7 +1165,8 @@
 
         const response = await fetch(rawFileUrl);
         if (!response.ok) {
-          console.warn("Autoload fetch failed with status:", response.status);
+          console.warn("Autoload fetch failed:", response.status);
+          showLoading(false);
           return;
         }
 
@@ -2063,13 +2064,15 @@
         if (preferredSheetName && sheetMap[preferredSheetName]) {
           chosenSheetName = preferredSheetName;
         } else if (preferredSheetName) {
-          const found = Object.keys(sheetMap).find(s => s.toLowerCase().includes(preferredSheetName.toLowerCase()));
+          const found = Object.keys(sheetMap).find(s => s.toLowerCase() === preferredSheetName.toLowerCase()) ||
+                        Object.keys(sheetMap).find(s => s.toLowerCase().includes(preferredSheetName.toLowerCase()));
           if (found) chosenSheetName = found;
         }
 
         const chosenSheetXmlPath = sheetMap[chosenSheetName];
         if (!chosenSheetXmlPath || !zip.file(chosenSheetXmlPath)) {
-          throw new Error(`Worksheet "${chosenSheetName}" not found in workbook.`);
+          console.warn(`Worksheet ${chosenSheetName} not found in zip archive.`);
+          return;
         }
 
         const xmlContent = await zip.file(chosenSheetXmlPath).async("string");
@@ -2089,7 +2092,7 @@
           sheetSelect.value = chosenSheetName;
         }
       } catch (err) {
-        console.error("parseAndOpenExcelBuffer error:", err);
+        console.error("parseAndOpenExcelBuffer failure:", err);
       } finally {
         showLoading(false);
       }
@@ -2457,7 +2460,6 @@
               continue;
             }
 
-            // Clean break when hitting subsequent sections
             if (
               pColA.startsWith("1.1.") || 
               pColA.startsWith("6.5.") || 
@@ -2566,14 +2568,12 @@
           continue;
         } 
         
-        // Exact Conditional and Extra Requirements Table Ingestion
         else if (
           colA.toLowerCase().includes("conditional") || 
           colA.toLowerCase().includes("extrareq") || 
           colA.toLowerCase() === "xx"
         ) {
           let blockIndex = i;
-          // Skip header banner rows if present
           if (colA.toLowerCase().includes("requirements") || colA.toLowerCase().includes("keyword")) {
             blockIndex = i + 1;
           }
@@ -2585,7 +2585,6 @@
             const hColA = String(hLine[0] || "").trim().toLowerCase();
             const hParam = String(hLine[1] || "").trim().toLowerCase();
 
-            // Find the start row where Param is 'Resource'
             if (hParam !== "resource") {
               if (hColA.includes("conditional") || hColA.includes("extrareq") || hColA === "xx" || !hColA) {
                 blockIndex++;
