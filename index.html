@@ -1125,8 +1125,10 @@
 
     function showLoading(show = true, msg = "Processing Workbook...") {
       const el = document.getElementById('loading-overlay');
-      document.getElementById('loading-message').textContent = msg;
-      el.style.display = show ? 'flex' : 'none';
+      if (el) {
+        document.getElementById('loading-message').textContent = msg;
+        el.style.display = show ? 'flex' : 'none';
+      }
     }
 
     function simpleYamlDump(obj, indent = 0) {
@@ -1158,19 +1160,19 @@
 
     async function autoLoadDefaultExcelWorkbook() {
       try {
-        showLoading(true, `Loading Master Specification...`);
+        showLoading(true, "Loading Master Specification...");
         const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/675a55ebd505066cd11a7a2a855183ae7f265923/O-PAS-Redfish-Profile-Master.xlsx";
 
         const response = await fetch(rawFileUrl);
         if (!response.ok) {
-          showLoading(false);
+          console.warn("Autoload fetch failed with status:", response.status);
           return;
         }
 
         const buffer = await response.arrayBuffer();
         await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
       } catch (err) {
-        console.warn("Autoload default workbook skipped:", err);
+        console.warn("Autoload default workbook error:", err);
       } finally {
         showLoading(false);
       }
@@ -2031,55 +2033,65 @@
     }
 
     async function parseAndOpenExcelBuffer(buffer, fileName, preferredSheetName = null) {
-      const zip = await JSZip.loadAsync(buffer);
-      const workbookXml = await zip.file("xl/workbook.xml").async("string");
-      const relsXml = await zip.file("xl/_rels/workbook.xml.rels").async("string");
+      try {
+        const zip = await JSZip.loadAsync(buffer);
+        const workbookXml = await zip.file("xl/workbook.xml").async("string");
+        const relsXml = await zip.file("xl/_rels/workbook.xml.rels").async("string");
 
-      const parser = new DOMParser();
-      const wbDoc = parser.parseFromString(workbookXml, "application/xml");
-      const relsDoc = parser.parseFromString(relsXml, "application/xml");
+        const parser = new DOMParser();
+        const wbDoc = parser.parseFromString(workbookXml, "application/xml");
+        const relsDoc = parser.parseFromString(relsXml, "application/xml");
 
-      const sheets = wbDoc.getElementsByTagName("sheet");
-      const rels = relsDoc.getElementsByTagName("Relationship");
+        const sheets = wbDoc.getElementsByTagName("sheet");
+        const rels = relsDoc.getElementsByTagName("Relationship");
 
-      const relMap = {};
-      for (let i = 0; i < rels.length; i++) {
-        relMap[rels[i].getAttribute("Id")] = "xl/" + rels[i].getAttribute("Target");
-      }
+        const relMap = {};
+        for (let i = 0; i < rels.length; i++) {
+          relMap[rels[i].getAttribute("Id")] = "xl/" + rels[i].getAttribute("Target");
+        }
 
-      const sheetMap = {};
-      let firstSheetName = "";
-      for (let i = 0; i < sheets.length; i++) {
-        const name = sheets[i].getAttribute("name");
-        const rId = sheets[i].getAttribute("r:id") || sheets[i].getAttribute("id");
-        sheetMap[name] = relMap[rId];
-        if (i === 0) firstSheetName = name;
-      }
+        const sheetMap = {};
+        let firstSheetName = "";
+        for (let i = 0; i < sheets.length; i++) {
+          const name = sheets[i].getAttribute("name");
+          const rId = sheets[i].getAttribute("r:id") || sheets[i].getAttribute("id");
+          sheetMap[name] = relMap[rId];
+          if (i === 0) firstSheetName = name;
+        }
 
-      let chosenSheetName = firstSheetName;
-      if (preferredSheetName && sheetMap[preferredSheetName]) {
-        chosenSheetName = preferredSheetName;
-      } else if (preferredSheetName) {
-        const found = Object.keys(sheetMap).find(s => s.toLowerCase().includes(preferredSheetName.toLowerCase()));
-        if (found) chosenSheetName = found;
-      }
+        let chosenSheetName = firstSheetName;
+        if (preferredSheetName && sheetMap[preferredSheetName]) {
+          chosenSheetName = preferredSheetName;
+        } else if (preferredSheetName) {
+          const found = Object.keys(sheetMap).find(s => s.toLowerCase().includes(preferredSheetName.toLowerCase()));
+          if (found) chosenSheetName = found;
+        }
 
-      const chosenSheetXmlPath = sheetMap[chosenSheetName];
-      const xmlContent = await zip.file(chosenSheetXmlPath).async("string");
+        const chosenSheetXmlPath = sheetMap[chosenSheetName];
+        if (!chosenSheetXmlPath || !zip.file(chosenSheetXmlPath)) {
+          throw new Error(`Worksheet "${chosenSheetName}" not found in workbook.`);
+        }
 
-      let sharedStrings = [];
-      const sharedStringsFile = zip.file("xl/sharedStrings.xml");
-      if (sharedStringsFile) {
-        const ssXml = await sharedStringsFile.async("string");
-        sharedStrings = parseSharedStringsXml(ssXml);
-      }
+        const xmlContent = await zip.file(chosenSheetXmlPath).async("string");
 
-      const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
-      createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
+        let sharedStrings = [];
+        const sharedStringsFile = zip.file("xl/sharedStrings.xml");
+        if (sharedStringsFile) {
+          const ssXml = await sharedStringsFile.async("string");
+          sharedStrings = parseSharedStringsXml(ssXml);
+        }
 
-      const sheetSelect = document.getElementById("excel-sheet-select");
-      if (sheetSelect && sheetSelect.querySelector(`option[value="${chosenSheetName}"]`)) {
-        sheetSelect.value = chosenSheetName;
+        const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
+        createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
+
+        const sheetSelect = document.getElementById("excel-sheet-select");
+        if (sheetSelect && sheetSelect.querySelector(`option[value="${chosenSheetName}"]`)) {
+          sheetSelect.value = chosenSheetName;
+        }
+      } catch (err) {
+        console.error("parseAndOpenExcelBuffer error:", err);
+      } finally {
+        showLoading(false);
       }
     }
 
@@ -2445,6 +2457,7 @@
               continue;
             }
 
+            // Clean break when hitting subsequent sections
             if (
               pColA.startsWith("1.1.") || 
               pColA.startsWith("6.5.") || 
@@ -2549,16 +2562,21 @@
           }
 
           resourcesContainerNode.children.push(resourceRoot);
-          i = rIndex - 1;
+          i = rIndex;
+          continue;
         } 
         
-        // ONLY CONDITIONAL / EXTRAREQ LOGIC HERE
+        // Exact Conditional and Extra Requirements Table Ingestion
         else if (
-          colA.toLowerCase().includes("extrareq") || 
           colA.toLowerCase().includes("conditional") || 
+          colA.toLowerCase().includes("extrareq") || 
           colA.toLowerCase() === "xx"
         ) {
-          let blockIndex = (colA.toLowerCase().includes("keyword") || colA.toLowerCase().includes("requirements")) ? i + 1 : i;
+          let blockIndex = i;
+          // Skip header banner rows if present
+          if (colA.toLowerCase().includes("requirements") || colA.toLowerCase().includes("keyword")) {
+            blockIndex = i + 1;
+          }
 
           while (blockIndex < rawRows.length) {
             const headObj = rawRows[blockIndex];
@@ -2567,15 +2585,17 @@
             const hColA = String(hLine[0] || "").trim().toLowerCase();
             const hParam = String(hLine[1] || "").trim().toLowerCase();
 
+            // Find the start row where Param is 'Resource'
             if (hParam !== "resource") {
-              if (hColA === "xx" || hColA.includes("extrareq") || hColA.includes("conditional") || !hColA) {
+              if (hColA.includes("conditional") || hColA.includes("extrareq") || hColA === "xx" || !hColA) {
                 blockIndex++;
                 continue;
               }
               break;
             }
 
-            const blockType = hColA.includes("conditional") ? "ConditionalRequirements" : "ExtraReq";
+            const isConditional = hColA.includes("conditional") || String(rawRows[i]?.values?.[0] || "").toLowerCase().includes("conditional");
+            const blockType = isConditional ? "ConditionalRequirements" : "ExtraReq";
             const targetResource = String(hLine[2] || "").trim();
             let targetProperty = "";
             let targetSubProperty = "";
@@ -2641,7 +2661,8 @@
             blockIndex = entryIdx;
           }
 
-          i = blockIndex - 1;
+          i = blockIndex;
+          continue;
         }
 
         i++;
