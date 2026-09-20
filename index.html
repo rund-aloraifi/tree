@@ -2593,9 +2593,16 @@
               if (eColA !== "xx" && !eColA.includes("extrareq") && !eColA.includes("conditional") && eColA !== "") break;
               if (paramName.toLowerCase() === "resource") break;
 
-              if (paramName.toLowerCase() === "property") targetProperty = val;
-              else if (paramName.toLowerCase() === "subproperty") targetSubProperty = val;
-              else if (paramName.toLowerCase() === "subsubproperty") targetSubSubProperty = val;
+              // Filter out table headers like "Param" and "Conditional Keyword"
+              const pLower = paramName.toLowerCase();
+              if (!paramName || pLower === "param" || pLower === "conditional keyword") {
+                entryIdx++;
+                continue;
+              }
+
+              if (pLower === "property") targetProperty = val;
+              else if (pLower === "subproperty") targetSubProperty = val;
+              else if (pLower === "subsubproperty") targetSubSubProperty = val;
               else if (paramName) {
                 if (!paramsMap[paramName]) paramsMap[paramName] = [];
                 paramsMap[paramName].push({ val: val, rowObj: eRowObj });
