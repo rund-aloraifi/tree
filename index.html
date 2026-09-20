@@ -2552,7 +2552,7 @@
           i = rIndex - 1;
         } 
         
-        // Match headers and start of Conditional and Extra Requirements tables
+        // ONLY CONDITIONAL / EXTRAREQ LOGIC HERE
         else if (
           colA.toLowerCase().includes("extrareq") || 
           colA.toLowerCase().includes("conditional") || 
@@ -2567,7 +2567,6 @@
             const hColA = String(hLine[0] || "").trim().toLowerCase();
             const hParam = String(hLine[1] || "").trim().toLowerCase();
 
-            // Look for the start of a definition block (Param == "Resource")
             if (hParam !== "resource") {
               if (hColA === "xx" || hColA.includes("extrareq") || hColA.includes("conditional") || !hColA) {
                 blockIndex++;
@@ -2577,7 +2576,7 @@
             }
 
             const blockType = hColA.includes("conditional") ? "ConditionalRequirements" : "ExtraReq";
-            const targetResource = String(hLine[2] || "").trim(); // Target Resource name
+            const targetResource = String(hLine[2] || "").trim();
             let targetProperty = "";
             let targetSubProperty = "";
             let targetSubSubProperty = "";
@@ -2593,9 +2592,9 @@
               const val = String(eLine[2] || "").trim();
 
               if (eColA !== "xx" && !eColA.includes("extrareq") && !eColA.includes("conditional") && eColA !== "") break;
-              if (paramName.toLowerCase() === "resource") break; // Next condition begins
+              if (paramName.toLowerCase() === "resource") break;
 
-              if (paramName.toLowerCase() === "property") targetProperty = val; // Target Property name
+              if (paramName.toLowerCase() === "property") targetProperty = val;
               else if (paramName.toLowerCase() === "subproperty") targetSubProperty = val;
               else if (paramName.toLowerCase() === "subsubproperty") targetSubSubProperty = val;
               else if (paramName) {
@@ -2605,7 +2604,6 @@
               entryIdx++;
             }
 
-            // Create container node for the rule group
             const ruleGroup = createNode(blockType, null, false, getCellMeta(headObj, 0));
 
             for (const pName in paramsMap) {
@@ -2621,7 +2619,6 @@
               }
             }
 
-            // Dynamically attach to resolved Resource > Property in tree
             const targetResNode = resourcesContainerNode.children.find(n => n.label.toLowerCase() === targetResource.toLowerCase());
             const propName = targetSubSubProperty || targetSubProperty || targetProperty;
 
