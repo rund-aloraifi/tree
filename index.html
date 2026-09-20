@@ -1166,7 +1166,6 @@
         const response = await fetch(rawFileUrl);
         if (!response.ok) {
           console.warn("Autoload fetch failed:", response.status);
-          showLoading(false);
           return;
         }
 
@@ -2568,99 +2567,75 @@
           continue;
         } 
         
+        // جدول الشروط والمتطلبات الإضافية
         else if (
-          colA.toLowerCase().includes("conditional") || 
-          colA.toLowerCase().includes("extrareq") || 
-          colA.toLowerCase() === "xx"
+          colB.toLowerCase() === "resource" && (colA.toLowerCase() === "conditional" || colA.toLowerCase() === "xx" || colA === "")
         ) {
-          let blockIndex = i;
-          if (colA.toLowerCase().includes("requirements") || colA.toLowerCase().includes("keyword")) {
-            blockIndex = i + 1;
+          const isConditional = colA.toLowerCase() === "conditional" || String(rawRows[i-1]?.values?.[0] || "").toLowerCase().includes("conditional");
+          const blockType = isConditional ? "ConditionalRequirements" : "ExtraReq";
+          const targetResource = String(line[2] || "").trim();
+          let targetProperty = "";
+          let targetSubProperty = "";
+          let targetSubSubProperty = "";
+          let paramsMap = {};
+
+          let entryIdx = i + 1;
+          while (entryIdx < rawRows.length) {
+            const eRowObj = rawRows[entryIdx];
+            if (!eRowObj) { entryIdx++; continue; }
+            const eLine = eRowObj.values || [];
+            const eColA = String(eLine[0] || "").trim().toLowerCase();
+            const paramName = String(eLine[1] || "").trim();
+            const val = String(eLine[2] || "").trim();
+
+            if (paramName.toLowerCase() === "resource") break;
+            if (eColA.startsWith("1.1.") || eColA.startsWith("6.5.")) break;
+
+            if (paramName.toLowerCase() === "property") targetProperty = val;
+            else if (paramName.toLowerCase() === "subproperty") targetSubProperty = val;
+            else if (paramName.toLowerCase() === "subsubproperty") targetSubSubProperty = val;
+            else if (paramName) {
+              if (!paramsMap[paramName]) paramsMap[paramName] = [];
+              paramsMap[paramName].push({ val: val, rowObj: eRowObj });
+            }
+            entryIdx++;
           }
 
-          while (blockIndex < rawRows.length) {
-            const headObj = rawRows[blockIndex];
-            if (!headObj) { blockIndex++; continue; }
-            const hLine = headObj.values || [];
-            const hColA = String(hLine[0] || "").trim().toLowerCase();
-            const hParam = String(hLine[1] || "").trim().toLowerCase();
+          const ruleGroup = createNode(blockType, null, false, getCellMeta(rowObj, 0));
 
-            if (hParam !== "resource") {
-              if (hColA.includes("conditional") || hColA.includes("extrareq") || hColA === "xx" || !hColA) {
-                blockIndex++;
-                continue;
-              }
-              break;
+          for (const pName in paramsMap) {
+            const items = paramsMap[pName];
+            if (items.length === 1) {
+              ruleGroup.children.push(createNode(pName, items[0].val, false, getCellMeta(items[0].rowObj, 2)));
+            } else {
+              const listContainer = createNode(pName, null, false, getCellMeta(items[0].rowObj, 1));
+              items.forEach(item => {
+                listContainer.children.push(createNode("", item.val, false, getCellMeta(item.rowObj, 2)));
+              });
+              ruleGroup.children.push(listContainer);
             }
+          }
 
-            const isConditional = hColA.includes("conditional") || String(rawRows[i]?.values?.[0] || "").toLowerCase().includes("conditional");
-            const blockType = isConditional ? "ConditionalRequirements" : "ExtraReq";
-            const targetResource = String(hLine[2] || "").trim();
-            let targetProperty = "";
-            let targetSubProperty = "";
-            let targetSubSubProperty = "";
-            let paramsMap = {};
+          const targetResNode = resourcesContainerNode.children.find(n => n.label.toLowerCase() === targetResource.toLowerCase());
+          const propName = targetSubSubProperty || targetSubProperty || targetProperty;
 
-            let entryIdx = blockIndex + 1;
-            while (entryIdx < rawRows.length) {
-              const eRowObj = rawRows[entryIdx];
-              if (!eRowObj) { entryIdx++; continue; }
-              const eLine = eRowObj.values || [];
-              const eColA = String(eLine[0] || "").trim().toLowerCase();
-              const paramName = String(eLine[1] || "").trim();
-              const val = String(eLine[2] || "").trim();
-
-              if (eColA !== "xx" && !eColA.includes("extrareq") && !eColA.includes("conditional") && eColA !== "") break;
-              if (paramName.toLowerCase() === "resource") break;
-
-              if (paramName.toLowerCase() === "property") targetProperty = val;
-              else if (paramName.toLowerCase() === "subproperty") targetSubProperty = val;
-              else if (paramName.toLowerCase() === "subsubproperty") targetSubSubProperty = val;
-              else if (paramName) {
-                if (!paramsMap[paramName]) paramsMap[paramName] = [];
-                paramsMap[paramName].push({ val: val, rowObj: eRowObj });
-              }
-              entryIdx++;
-            }
-
-            const ruleGroup = createNode(blockType, null, false, getCellMeta(headObj, 0));
-
-            for (const pName in paramsMap) {
-              const items = paramsMap[pName];
-              if (items.length === 1) {
-                ruleGroup.children.push(createNode(pName, items[0].val, false, getCellMeta(items[0].rowObj, 2)));
-              } else {
-                const listContainer = createNode(pName, null, false, getCellMeta(items[0].rowObj, 1));
-                items.forEach(item => {
-                  listContainer.children.push(createNode("", item.val, false, getCellMeta(item.rowObj, 2)));
-                });
-                ruleGroup.children.push(listContainer);
-              }
-            }
-
-            const targetResNode = resourcesContainerNode.children.find(n => n.label.toLowerCase() === targetResource.toLowerCase());
-            const propName = targetSubSubProperty || targetSubProperty || targetProperty;
-
-            if (targetResNode) {
-              if (propName) {
-                const targetPropNode = findPropertyNodeDeep(targetResNode.children, propName);
-                if (targetPropNode) {
-                  targetPropNode.children.push(ruleGroup);
-                } else {
-                  targetResNode.children.push(ruleGroup);
-                }
+          if (targetResNode) {
+            if (propName) {
+              const targetPropNode = findPropertyNodeDeep(targetResNode.children, propName);
+              if (targetPropNode) {
+                targetPropNode.children.push(ruleGroup);
               } else {
                 targetResNode.children.push(ruleGroup);
               }
             } else {
-              ruleGroup.label = `${blockType} (${targetResource}${propName ? ' > ' + propName : ''})`;
-              resourcesContainerNode.children.push(ruleGroup);
+              targetResNode.children.push(ruleGroup);
             }
-
-            blockIndex = entryIdx;
+          } else {
+            ruleGroup.label = `${blockType} (${targetResource}${propName ? ' > ' + propName : ''})`;
+            resourcesContainerNode.children.push(ruleGroup);
           }
 
-          i = blockIndex;
+          i = entryIdx;
           continue;
         }
 
