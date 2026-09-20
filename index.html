@@ -1072,35 +1072,53 @@
       if (!raw) return [];
 
       const results = [];
+      const handledKeys = new Set();
+      const lowerRaw = raw.toLowerCase();
 
-      // مطابقة الشروط الخاصة بمستوى المورد (Resource Level)
-      if (raw.includes("CreateResource")) results.push({ key: "CreateResource", val: true });
-      if (raw.includes("DeleteResource")) results.push({ key: "DeleteResource", val: true });
-      if (raw.includes("UpdateResource")) results.push({ key: "UpdateResource", val: true });
-      if (raw.includes("MinCount1")) results.push({ key: "MinCount", val: 1 });
-
-      // محاكاة دوال getreplaces / getreplacedby والتقسيم بمسافات
-      const tokens = raw.split(/\s+/);
-      tokens.forEach(tok => {
-        const parts = tok.split(":");
-        if (parts.length === 2) {
-          const key = parts[0].trim();
-          const val = parts[1].trim();
-
-          if (key === "Replaces") {
-            results.push({ key: "ReplacesProperty", val: val });
-          } else if (key === "ReplacedBy") {
-            results.push({ key: "ReplacedByProperty", val: val });
-          } else if (key && val) {
-            results.push({ key: key, val: val });
-          }
-        }
-      });
-
-      // إذا وُجد نص ولم تطابقه الشروط السابقة
-      if (results.length === 0 && raw.length > 0) {
-        results.push({ key: "SpecialRequirement", val: raw });
+      if (lowerRaw.includes("createresource")) {
+        results.push({ key: "CreateResource", val: true });
+        handledKeys.add("createresource");
       }
+      if (lowerRaw.includes("deleteresource") || lowerRaw.includes("deletresource")) {
+        results.push({ key: "DeleteResource", val: true });
+        handledKeys.add("deleteresource");
+        handledKeys.add("deletresource");
+      }
+      if (lowerRaw.includes("updateresource")) {
+        results.push({ key: "UpdateResource", val: true });
+        handledKeys.add("updateresource");
+      }
+      if (lowerRaw.includes("mincount1")) {
+        results.push({ key: "MinCount", val: 1 });
+        handledKeys.add("mincount1");
+      }
+
+      const linesOrTokens = raw.split(/[\r\n,;]+/).map(s => s.trim()).filter(Boolean);
+
+      linesOrTokens.forEach(entry => {
+        const subTokens = entry.split(/\s+/).filter(Boolean);
+
+        subTokens.forEach(tok => {
+          const lowerTok = tok.toLowerCase();
+          if (handledKeys.has(lowerTok)) return;
+
+          if (tok.includes(":")) {
+            const parts = tok.split(":");
+            const prefix = parts[0].trim();
+            const targetProp = parts.slice(1).join(":").trim();
+
+            if (prefix.toLowerCase() === "replaces") {
+              results.push({ key: "ReplacesProperty", val: targetProp });
+            } else if (prefix.toLowerCase() === "replacedby") {
+              results.push({ key: "ReplacedByProperty", val: targetProp });
+            } else if (prefix && targetProp) {
+              results.push({ key: prefix, val: targetProp });
+            }
+          } else if (!results.some(r => r.key.toLowerCase() === lowerTok)) {
+            results.push({ key: tok, val: true });
+          }
+        });
+      });
 
       return results;
     }
@@ -2111,7 +2129,12 @@
       const siElements = doc.getElementsByTagName("si");
       const strings = [];
       for (let i = 0; i < siElements.length; i++) {
-        strings.push(siElements[i].textContent || "");
+        const tElements = siElements[i].getElementsByTagName("t");
+        let fullText = "";
+        for (let j = 0; j < tElements.length; j++) {
+          fullText += tElements[j].textContent || "";
+        }
+        strings.push(fullText);
       }
       return strings;
     }
@@ -2152,7 +2175,14 @@
             const ssIndex = parseInt(vEl.textContent);
             val = sharedStrings[ssIndex] || "";
           } else if (cellType === "inlineStr" && isEl) {
-            val = isEl.textContent || "";
+            const tElements = isEl.getElementsByTagName("t");
+            if (tElements.length > 0) {
+              for (let t = 0; t < tElements.length; t++) {
+                val += tElements[t].textContent || "";
+              }
+            } else {
+              val = isEl.textContent || "";
+            }
           } else if (vEl) {
             val = vEl.textContent || "";
           }
@@ -2372,6 +2402,11 @@
           const resVersions = parseVersionFlags(line);
           const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions);
 
+          const triggerSpecialReqs = String(line[12] || "").trim();
+          if (triggerSpecialReqs) {
+            attachSpecialRequirements(resourceRoot, triggerSpecialReqs, rowObj, resVersions);
+          }
+
           let rowDescIdx = i + 1;
           if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
             const possibleDesc = String(rawRows[rowDescIdx].values[0] || "").trim();
@@ -2410,7 +2445,13 @@
               continue;
             }
 
-            if (pColA.startsWith("1.1.") || pColA.startsWith("6.5.") || pColA === "Conditional" || pColA.toLowerCase().includes("extrareq") || pColA.includes("/redfish/v1/")) {
+            if (
+              pColA.startsWith("1.1.") || 
+              pColA.startsWith("6.5.") || 
+              pColA.toLowerCase().includes("conditional") || 
+              pColA.toLowerCase().includes("extrareq") || 
+              pColA.includes("/redfish/v1/")
+            ) {
               if (pColA.includes("/redfish/v1/")) {
                 const uriVal = pColA.trim();
                 const uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
@@ -2425,6 +2466,13 @@
             }
 
             const pColATrimLower = pColA.trim().toLowerCase();
+
+            if (specialReqsRaw) {
+              const lowerSpec = specialReqsRaw.toLowerCase();
+              if (lowerSpec.includes("createresource") || lowerSpec.includes("deleteresource") || lowerSpec.includes("deletresource") || lowerSpec.includes("updateresource") || lowerSpec.includes("mincount1")) {
+                attachSpecialRequirements(resourceRoot, specialReqsRaw, pRowObj, rowVersions);
+              }
+            }
 
             if (
               pColATrimLower === "property" ||
@@ -2504,31 +2552,38 @@
           i = rIndex - 1;
         } 
         
-        else if (colA.toLowerCase().includes("extrareq") || (colA.toLowerCase() === "xx" && colB.toLowerCase() === "resource")) {
-          let extraIndex = (colA.toLowerCase().includes("keyword")) ? i + 1 : i;
+        // Match headers and start of Conditional and Extra Requirements tables
+        else if (
+          colA.toLowerCase().includes("extrareq") || 
+          colA.toLowerCase().includes("conditional") || 
+          colA.toLowerCase() === "xx"
+        ) {
+          let blockIndex = (colA.toLowerCase().includes("keyword") || colA.toLowerCase().includes("requirements")) ? i + 1 : i;
 
-          while (extraIndex < rawRows.length) {
-            const headObj = rawRows[extraIndex];
-            if (!headObj) { extraIndex++; continue; }
+          while (blockIndex < rawRows.length) {
+            const headObj = rawRows[blockIndex];
+            if (!headObj) { blockIndex++; continue; }
             const hLine = headObj.values || [];
             const hColA = String(hLine[0] || "").trim().toLowerCase();
             const hParam = String(hLine[1] || "").trim().toLowerCase();
 
+            // Look for the start of a definition block (Param == "Resource")
             if (hParam !== "resource") {
-              if (hColA === "xx" || hColA.includes("extrareq")) {
-                extraIndex++;
+              if (hColA === "xx" || hColA.includes("extrareq") || hColA.includes("conditional") || !hColA) {
+                blockIndex++;
                 continue;
               }
               break;
             }
 
-            const targetResource = String(hLine[2] || "").trim();
+            const blockType = hColA.includes("conditional") ? "ConditionalRequirements" : "ExtraReq";
+            const targetResource = String(hLine[2] || "").trim(); // Target Resource name
             let targetProperty = "";
             let targetSubProperty = "";
             let targetSubSubProperty = "";
             let paramsMap = {};
 
-            let entryIdx = extraIndex + 1;
+            let entryIdx = blockIndex + 1;
             while (entryIdx < rawRows.length) {
               const eRowObj = rawRows[entryIdx];
               if (!eRowObj) { entryIdx++; continue; }
@@ -2537,10 +2592,10 @@
               const paramName = String(eLine[1] || "").trim();
               const val = String(eLine[2] || "").trim();
 
-              if (eColA !== "xx" && !eColA.includes("extrareq")) break;
-              if (paramName.toLowerCase() === "resource") break;
+              if (eColA !== "xx" && !eColA.includes("extrareq") && !eColA.includes("conditional") && eColA !== "") break;
+              if (paramName.toLowerCase() === "resource") break; // Next condition begins
 
-              if (paramName.toLowerCase() === "property") targetProperty = val;
+              if (paramName.toLowerCase() === "property") targetProperty = val; // Target Property name
               else if (paramName.toLowerCase() === "subproperty") targetSubProperty = val;
               else if (paramName.toLowerCase() === "subsubproperty") targetSubSubProperty = val;
               else if (paramName) {
@@ -2550,21 +2605,23 @@
               entryIdx++;
             }
 
-            const extraGroup = createNode("ExtraReq", null, false, getCellMeta(headObj, 0));
+            // Create container node for the rule group
+            const ruleGroup = createNode(blockType, null, false, getCellMeta(headObj, 0));
 
             for (const pName in paramsMap) {
               const items = paramsMap[pName];
               if (items.length === 1) {
-                extraGroup.children.push(createNode(pName, items[0].val, false, getCellMeta(items[0].rowObj, 2)));
+                ruleGroup.children.push(createNode(pName, items[0].val, false, getCellMeta(items[0].rowObj, 2)));
               } else {
                 const listContainer = createNode(pName, null, false, getCellMeta(items[0].rowObj, 1));
                 items.forEach(item => {
                   listContainer.children.push(createNode("", item.val, false, getCellMeta(item.rowObj, 2)));
                 });
-                extraGroup.children.push(listContainer);
+                ruleGroup.children.push(listContainer);
               }
             }
 
+            // Dynamically attach to resolved Resource > Property in tree
             const targetResNode = resourcesContainerNode.children.find(n => n.label.toLowerCase() === targetResource.toLowerCase());
             const propName = targetSubSubProperty || targetSubProperty || targetProperty;
 
@@ -2572,22 +2629,22 @@
               if (propName) {
                 const targetPropNode = findPropertyNodeDeep(targetResNode.children, propName);
                 if (targetPropNode) {
-                  targetPropNode.children.push(extraGroup);
+                  targetPropNode.children.push(ruleGroup);
                 } else {
-                  targetResNode.children.push(extraGroup);
+                  targetResNode.children.push(ruleGroup);
                 }
               } else {
-                targetResNode.children.push(extraGroup);
+                targetResNode.children.push(ruleGroup);
               }
             } else {
-              extraGroup.label = `ExtraReq (${targetResource}${propName ? ' > ' + propName : ''})`;
-              resourcesContainerNode.children.push(extraGroup);
+              ruleGroup.label = `${blockType} (${targetResource}${propName ? ' > ' + propName : ''})`;
+              resourcesContainerNode.children.push(ruleGroup);
             }
 
-            extraIndex = entryIdx;
+            blockIndex = entryIdx;
           }
 
-          i = extraIndex - 1;
+          i = blockIndex - 1;
         }
 
         i++;
