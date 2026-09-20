@@ -835,7 +835,7 @@
     #loading-overlay {
       position: absolute;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.35);
+      background: rgba(0,0,0,0.25);
       backdrop-filter: blur(2px);
       display: none;
       align-items: center;
@@ -1125,10 +1125,8 @@
 
     function showLoading(show = true, msg = "Processing Workbook...") {
       const el = document.getElementById('loading-overlay');
-      if (el) {
-        document.getElementById('loading-message').textContent = msg;
-        el.style.display = show ? 'flex' : 'none';
-      }
+      document.getElementById('loading-message').textContent = msg;
+      el.style.display = show ? 'flex' : 'none';
     }
 
     function simpleYamlDump(obj, indent = 0) {
@@ -1160,12 +1158,11 @@
 
     async function autoLoadDefaultExcelWorkbook() {
       try {
-        showLoading(true, "Loading Master Specification...");
+        showLoading(true, `Loading Master Specification...`);
         const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/675a55ebd505066cd11a7a2a855183ae7f265923/O-PAS-Redfish-Profile-Master.xlsx";
 
         const response = await fetch(rawFileUrl);
         if (!response.ok) {
-          console.warn("Autoload fetch failed with HTTP status:", response.status);
           showLoading(false);
           return;
         }
@@ -1173,7 +1170,7 @@
         const buffer = await response.arrayBuffer();
         await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
       } catch (err) {
-        console.warn("Autoload skipped or unavailable:", err);
+        console.warn("Autoload default workbook skipped:", err);
       } finally {
         showLoading(false);
       }
@@ -2034,67 +2031,55 @@
     }
 
     async function parseAndOpenExcelBuffer(buffer, fileName, preferredSheetName = null) {
-      try {
-        const zip = await JSZip.loadAsync(buffer);
-        const workbookXml = await zip.file("xl/workbook.xml").async("string");
-        const relsXml = await zip.file("xl/_rels/workbook.xml.rels").async("string");
+      const zip = await JSZip.loadAsync(buffer);
+      const workbookXml = await zip.file("xl/workbook.xml").async("string");
+      const relsXml = await zip.file("xl/_rels/workbook.xml.rels").async("string");
 
-        const parser = new DOMParser();
-        const wbDoc = parser.parseFromString(workbookXml, "application/xml");
-        const relsDoc = parser.parseFromString(relsXml, "application/xml");
+      const parser = new DOMParser();
+      const wbDoc = parser.parseFromString(workbookXml, "application/xml");
+      const relsDoc = parser.parseFromString(relsXml, "application/xml");
 
-        const sheets = wbDoc.getElementsByTagName("sheet");
-        const rels = relsDoc.getElementsByTagName("Relationship");
+      const sheets = wbDoc.getElementsByTagName("sheet");
+      const rels = relsDoc.getElementsByTagName("Relationship");
 
-        const relMap = {};
-        for (let i = 0; i < rels.length; i++) {
-          relMap[rels[i].getAttribute("Id")] = "xl/" + rels[i].getAttribute("Target");
-        }
+      const relMap = {};
+      for (let i = 0; i < rels.length; i++) {
+        relMap[rels[i].getAttribute("Id")] = "xl/" + rels[i].getAttribute("Target");
+      }
 
-        const sheetMap = {};
-        let firstSheetName = "";
-        for (let i = 0; i < sheets.length; i++) {
-          const name = sheets[i].getAttribute("name");
-          const rId = sheets[i].getAttribute("r:id") || sheets[i].getAttribute("id");
-          sheetMap[name] = relMap[rId];
-          if (i === 0) firstSheetName = name;
-        }
+      const sheetMap = {};
+      let firstSheetName = "";
+      for (let i = 0; i < sheets.length; i++) {
+        const name = sheets[i].getAttribute("name");
+        const rId = sheets[i].getAttribute("r:id") || sheets[i].getAttribute("id");
+        sheetMap[name] = relMap[rId];
+        if (i === 0) firstSheetName = name;
+      }
 
-        let chosenSheetName = firstSheetName;
-        if (preferredSheetName && sheetMap[preferredSheetName]) {
-          chosenSheetName = preferredSheetName;
-        } else if (preferredSheetName) {
-          const found = Object.keys(sheetMap).find(s => s.toLowerCase() === preferredSheetName.toLowerCase()) ||
-                        Object.keys(sheetMap).find(s => s.toLowerCase().includes(preferredSheetName.toLowerCase()));
-          if (found) chosenSheetName = found;
-        }
+      let chosenSheetName = firstSheetName;
+      if (preferredSheetName && sheetMap[preferredSheetName]) {
+        chosenSheetName = preferredSheetName;
+      } else if (preferredSheetName) {
+        const found = Object.keys(sheetMap).find(s => s.toLowerCase().includes(preferredSheetName.toLowerCase()));
+        if (found) chosenSheetName = found;
+      }
 
-        const chosenSheetXmlPath = sheetMap[chosenSheetName];
-        if (!chosenSheetXmlPath || !zip.file(chosenSheetXmlPath)) {
-          console.warn(`Worksheet ${chosenSheetName} not found in zip archive.`);
-          return;
-        }
+      const chosenSheetXmlPath = sheetMap[chosenSheetName];
+      const xmlContent = await zip.file(chosenSheetXmlPath).async("string");
 
-        const xmlContent = await zip.file(chosenSheetXmlPath).async("string");
+      let sharedStrings = [];
+      const sharedStringsFile = zip.file("xl/sharedStrings.xml");
+      if (sharedStringsFile) {
+        const ssXml = await sharedStringsFile.async("string");
+        sharedStrings = parseSharedStringsXml(ssXml);
+      }
 
-        let sharedStrings = [];
-        const sharedStringsFile = zip.file("xl/sharedStrings.xml");
-        if (sharedStringsFile) {
-          const ssXml = await sharedStringsFile.async("string");
-          sharedStrings = parseSharedStringsXml(ssXml);
-        }
+      const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
+      createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
 
-        const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
-        createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
-
-        const sheetSelect = document.getElementById("excel-sheet-select");
-        if (sheetSelect && sheetSelect.querySelector(`option[value="${chosenSheetName}"]`)) {
-          sheetSelect.value = chosenSheetName;
-        }
-      } catch (err) {
-        console.error("parseAndOpenExcelBuffer failure:", err);
-      } finally {
-        showLoading(false);
+      const sheetSelect = document.getElementById("excel-sheet-select");
+      if (sheetSelect && sheetSelect.querySelector(`option[value="${chosenSheetName}"]`)) {
+        sheetSelect.value = chosenSheetName;
       }
     }
 
@@ -2564,79 +2549,102 @@
           }
 
           resourcesContainerNode.children.push(resourceRoot);
-          i = rIndex;
-          continue;
+          i = rIndex - 1;
         } 
         
+        // Match headers and start of Conditional and Extra Requirements tables
         else if (
-          colB.toLowerCase() === "resource" && (colA.toLowerCase() === "conditional" || colA.toLowerCase() === "xx" || colA === "")
+          colA.toLowerCase().includes("extrareq") || 
+          colA.toLowerCase().includes("conditional") || 
+          colA.toLowerCase() === "xx"
         ) {
-          const isConditional = colA.toLowerCase() === "conditional" || String(rawRows[Math.max(0, i - 1)]?.values?.[0] || "").toLowerCase().includes("conditional");
-          const blockType = isConditional ? "ConditionalRequirements" : "ExtraReq";
-          const targetResource = String(line[2] || "").trim();
-          let targetProperty = "";
-          let targetSubProperty = "";
-          let targetSubSubProperty = "";
-          let paramsMap = {};
+          let blockIndex = (colA.toLowerCase().includes("keyword") || colA.toLowerCase().includes("requirements")) ? i + 1 : i;
 
-          let entryIdx = i + 1;
-          while (entryIdx < rawRows.length) {
-            const eRowObj = rawRows[entryIdx];
-            if (!eRowObj) { entryIdx++; continue; }
-            const eLine = eRowObj.values || [];
-            const eColA = String(eLine[0] || "").trim().toLowerCase();
-            const paramName = String(eLine[1] || "").trim();
-            const val = String(eLine[2] || "").trim();
+          while (blockIndex < rawRows.length) {
+            const headObj = rawRows[blockIndex];
+            if (!headObj) { blockIndex++; continue; }
+            const hLine = headObj.values || [];
+            const hColA = String(hLine[0] || "").trim().toLowerCase();
+            const hParam = String(hLine[1] || "").trim().toLowerCase();
 
-            if (paramName.toLowerCase() === "resource") break;
-            if (eColA.startsWith("1.1.") || eColA.startsWith("6.5.")) break;
-
-            if (paramName.toLowerCase() === "property") targetProperty = val;
-            else if (paramName.toLowerCase() === "subproperty") targetSubProperty = val;
-            else if (paramName.toLowerCase() === "subsubproperty") targetSubSubProperty = val;
-            else if (paramName) {
-              if (!paramsMap[paramName]) paramsMap[paramName] = [];
-              paramsMap[paramName].push({ val: val, rowObj: eRowObj });
+            // Look for the start of a definition block (Param == "Resource")
+            if (hParam !== "resource") {
+              if (hColA === "xx" || hColA.includes("extrareq") || hColA.includes("conditional") || !hColA) {
+                blockIndex++;
+                continue;
+              }
+              break;
             }
-            entryIdx++;
-          }
 
-          const ruleGroup = createNode(blockType, null, false, getCellMeta(rowObj, 0));
+            const blockType = hColA.includes("conditional") ? "ConditionalRequirements" : "ExtraReq";
+            const targetResource = String(hLine[2] || "").trim(); // Target Resource name
+            let targetProperty = "";
+            let targetSubProperty = "";
+            let targetSubSubProperty = "";
+            let paramsMap = {};
 
-          for (const pName in paramsMap) {
-            const items = paramsMap[pName];
-            if (items.length === 1) {
-              ruleGroup.children.push(createNode(pName, items[0].val, false, getCellMeta(items[0].rowObj, 2)));
-            } else {
-              const listContainer = createNode(pName, null, false, getCellMeta(items[0].rowObj, 1));
-              items.forEach(item => {
-                listContainer.children.push(createNode("", item.val, false, getCellMeta(item.rowObj, 2)));
-              });
-              ruleGroup.children.push(listContainer);
+            let entryIdx = blockIndex + 1;
+            while (entryIdx < rawRows.length) {
+              const eRowObj = rawRows[entryIdx];
+              if (!eRowObj) { entryIdx++; continue; }
+              const eLine = eRowObj.values || [];
+              const eColA = String(eLine[0] || "").trim().toLowerCase();
+              const paramName = String(eLine[1] || "").trim();
+              const val = String(eLine[2] || "").trim();
+
+              if (eColA !== "xx" && !eColA.includes("extrareq") && !eColA.includes("conditional") && eColA !== "") break;
+              if (paramName.toLowerCase() === "resource") break; // Next condition begins
+
+              if (paramName.toLowerCase() === "property") targetProperty = val; // Target Property name
+              else if (paramName.toLowerCase() === "subproperty") targetSubProperty = val;
+              else if (paramName.toLowerCase() === "subsubproperty") targetSubSubProperty = val;
+              else if (paramName) {
+                if (!paramsMap[paramName]) paramsMap[paramName] = [];
+                paramsMap[paramName].push({ val: val, rowObj: eRowObj });
+              }
+              entryIdx++;
             }
-          }
 
-          const targetResNode = resourcesContainerNode.children.find(n => n.label.toLowerCase() === targetResource.toLowerCase());
-          const propName = targetSubSubProperty || targetSubProperty || targetProperty;
+            // Create container node for the rule group
+            const ruleGroup = createNode(blockType, null, false, getCellMeta(headObj, 0));
 
-          if (targetResNode) {
-            if (propName) {
-              const targetPropNode = findPropertyNodeDeep(targetResNode.children, propName);
-              if (targetPropNode) {
-                targetPropNode.children.push(ruleGroup);
+            for (const pName in paramsMap) {
+              const items = paramsMap[pName];
+              if (items.length === 1) {
+                ruleGroup.children.push(createNode(pName, items[0].val, false, getCellMeta(items[0].rowObj, 2)));
+              } else {
+                const listContainer = createNode(pName, null, false, getCellMeta(items[0].rowObj, 1));
+                items.forEach(item => {
+                  listContainer.children.push(createNode("", item.val, false, getCellMeta(item.rowObj, 2)));
+                });
+                ruleGroup.children.push(listContainer);
+              }
+            }
+
+            // Dynamically attach to resolved Resource > Property in tree
+            const targetResNode = resourcesContainerNode.children.find(n => n.label.toLowerCase() === targetResource.toLowerCase());
+            const propName = targetSubSubProperty || targetSubProperty || targetProperty;
+
+            if (targetResNode) {
+              if (propName) {
+                const targetPropNode = findPropertyNodeDeep(targetResNode.children, propName);
+                if (targetPropNode) {
+                  targetPropNode.children.push(ruleGroup);
+                } else {
+                  targetResNode.children.push(ruleGroup);
+                }
               } else {
                 targetResNode.children.push(ruleGroup);
               }
             } else {
-              targetResNode.children.push(ruleGroup);
+              ruleGroup.label = `${blockType} (${targetResource}${propName ? ' > ' + propName : ''})`;
+              resourcesContainerNode.children.push(ruleGroup);
             }
-          } else {
-            ruleGroup.label = `${blockType} (${targetResource}${propName ? ' > ' + propName : ''})`;
-            resourcesContainerNode.children.push(ruleGroup);
+
+            blockIndex = entryIdx;
           }
 
-          i = entryIdx;
-          continue;
+          i = blockIndex - 1;
         }
 
         i++;
