@@ -1155,7 +1155,9 @@
     document.addEventListener("DOMContentLoaded", () => {
       initResizer();
       renderTabsUI();
-      autoLoadDefaultExcelWorkbook();
+      setTimeout(() => {
+        autoLoadDefaultExcelWorkbook();
+      }, 50);
     });
 
     async function autoLoadDefaultExcelWorkbook() {
@@ -1165,7 +1167,7 @@
 
         const response = await fetch(rawFileUrl);
         if (!response.ok) {
-          console.warn("Autoload fetch failed:", response.status);
+          showLoading(false);
           return;
         }
 
@@ -2567,7 +2569,6 @@
           continue;
         } 
         
-        // جدول الشروط والمتطلبات الإضافية
         else if (
           colB.toLowerCase() === "resource" && (colA.toLowerCase() === "conditional" || colA.toLowerCase() === "xx" || colA === "")
         ) {
