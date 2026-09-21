@@ -2460,61 +2460,60 @@
             const specialReqsRaw = String(pLine[12] || "").trim();
             const rowVersions = parseVersionFlags(pLine);
 
-            if (pColA.trim().toLowerCase() === "f" && !pColB.trim()) {
+            const pColATrim = pColA.trim();
+            const pColATrimLower = pColATrim.toLowerCase();
+
+            // 1. تجاهل الأسطر غير المهمة
+            if (pColATrimLower === "f" && !pColB.trim()) {
               rIndex++;
               continue;
             }
 
-            const pColATrim = pColA.trim();
-            const pColATrimLower = pColATrim.toLowerCase();
-
-            // New check: skips anything ending in "uris" or "uris:" (e.g., "PCIeDevice URIs", "CertificateService URIs:")
+            // 2. تخطي سطر ترويسة الروابط سواء كانت 'URIs' أو 'URIs:' لتجنب إنشاء عقد فارغة
             if (/(?:uris|uris:)$/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
 
-            // 2. Handle URIs without breaking out of the loop (allows multiple URIs)
+            // 3. التقاط وتجميع كافة الروابط بدون عمل خروج من الحلقة
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
                 uriNode = createNode(`${detectedResourceName} URIs`, null, false, getCellMeta(pRowObj, 0), rowVersions);
                 resourceRoot.children.push(uriNode);
-              } else if (uriNode.value !== null) {
-                // If it previously captured a direct string value, convert it to an array layout
-                uriNode.children.push(createNode("", uriNode.value, false, uriNode.excelLoc, uriNode.opasVersions));
-                uriNode.value = null;
               }
-              
-              // Push the newly found URI as a child item (if not duplicated)
-              if (!uriNode.children.some(c => c.value === pColATrim)) {
+
+              // التحقق من عدم التكرار ثم إضافة الرابط كعقدة مصفوفية
+              const exists = uriNode.children.some(c => (c.value || c.label) === pColATrim);
+              if (!exists) {
                 uriNode.children.push(createNode("", pColATrim, false, getCellMeta(pRowObj, 0), rowVersions));
               }
-              
+
               rIndex++;
               continue;
             }
 
-            // 3. Break if we hit the next major section or requirement block
+            // 4. إيقاف الفحص عند الوصول إلى بداية قسم جديد رئيسي فقط
             if (
-              pColA.startsWith("1.1.") || 
-              pColA.startsWith("6.5.") || 
+              pColATrim.startsWith("1.1.") || 
+              pColATrim.startsWith("6.5.") || 
               pColATrimLower.includes("conditional") || 
               pColATrimLower.includes("extrareq")
             ) {
               break;
             }
 
+            // 5. تجاهل ترويسات الجداول والبيانات الوصفية
             if (
               pColATrimLower === "property" ||
               pColATrimLower === "(property)" ||
-              pColA.startsWith("Table ") ||
-              /Table\s+[0-9]+:/i.test(pColA) ||
-              /\([vV]?[0-9]+[_\.0-9a-zA-Z]*\)/.test(pColA) || 
+              pColATrim.startsWith("Table ") ||
+              /Table\s+[0-9]+:/i.test(pColATrim) ||
+              /\([vV]?[0-9]+[_\.0-9a-zA-Z]*\)/.test(pColATrim) || 
               pColB === "Profile" || 
               pColC === "Profile" || 
-              pColA === "ProfileName" || 
-              pColA === "ProfilePurpose" ||
+              pColATrim === "ProfileName" || 
+              pColATrim === "ProfilePurpose" ||
               rIndex === rowDescIdx
             ) {
               rIndex++;
