@@ -2468,8 +2468,8 @@
             const pColATrim = pColA.trim();
             const pColATrimLower = pColATrim.toLowerCase();
 
-            // 1. Skip header artifacts for URIs to prevent empty nodes
-            if (pColATrimLower.endsWith("uris:") || pColATrimLower === "uris") {
+            // New check: skips anything ending in "uris" or "uris:" (e.g., "PCIeDevice URIs", "CertificateService URIs:")
+            if (/(?:uris|uris:)$/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
