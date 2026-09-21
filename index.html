@@ -2289,16 +2289,16 @@
         
         specs.forEach(s => {
           if (s.key === "MinCount") {
-            let membersNode = targetNode.children.find(c => c.label === "Members");
+            let membersNode = targetNode.children.find(c => c.label.trim().toLowerCase() === "members");
             if (!membersNode) {
               membersNode = createNode("Members", null, false, getCellMeta(rowObj, 0), versions);
               targetNode.children.push(membersNode);
             }
-            if (!membersNode.children.some(c => c.label === "MinCount")) {
+            if (!membersNode.children.some(c => c.label.toLowerCase() === "mincount")) {
               membersNode.children.push(createNode("MinCount", s.val, false, getCellMeta(rowObj, 12), versions));
             }
           } else {
-            if (!targetNode.children.some(c => c.label === s.key)) {
+            if (!targetNode.children.some(c => c.label.toLowerCase() === s.key.toLowerCase())) {
               targetNode.children.push(createNode(s.key, s.val, false, getCellMeta(rowObj, 12), versions));
             }
           }
@@ -2593,7 +2593,6 @@
               if (eColA !== "xx" && !eColA.includes("extrareq") && !eColA.includes("conditional") && eColA !== "") break;
               if (paramName.toLowerCase() === "resource") break;
 
-              // Filter out table headers like "Param" and "Conditional Keyword"
               const pLower = paramName.toLowerCase();
               if (!paramName || pLower === "param" || pLower === "conditional keyword") {
                 entryIdx++;
