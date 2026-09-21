@@ -2465,27 +2465,45 @@
               continue;
             }
 
+            const pColATrim = pColA.trim();
+            const pColATrimLower = pColATrim.toLowerCase();
+
+            // 1. Skip header artifacts for URIs to prevent empty nodes
+            if (pColATrimLower.endsWith("uris:") || pColATrimLower === "uris") {
+              rIndex++;
+              continue;
+            }
+
+            // 2. Handle URIs without breaking out of the loop (allows multiple URIs)
+            if (pColATrim.includes("/redfish/v1/")) {
+              let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
+              if (!uriNode) {
+                uriNode = createNode(`${detectedResourceName} URIs`, null, false, getCellMeta(pRowObj, 0), rowVersions);
+                resourceRoot.children.push(uriNode);
+              } else if (uriNode.value !== null) {
+                // If it previously captured a direct string value, convert it to an array layout
+                uriNode.children.push(createNode("", uriNode.value, false, uriNode.excelLoc, uriNode.opasVersions));
+                uriNode.value = null;
+              }
+              
+              // Push the newly found URI as a child item (if not duplicated)
+              if (!uriNode.children.some(c => c.value === pColATrim)) {
+                uriNode.children.push(createNode("", pColATrim, false, getCellMeta(pRowObj, 0), rowVersions));
+              }
+              
+              rIndex++;
+              continue;
+            }
+
+            // 3. Break if we hit the next major section or requirement block
             if (
               pColA.startsWith("1.1.") || 
               pColA.startsWith("6.5.") || 
-              pColA.toLowerCase().includes("conditional") || 
-              pColA.toLowerCase().includes("extrareq") || 
-              pColA.includes("/redfish/v1/")
+              pColATrimLower.includes("conditional") || 
+              pColATrimLower.includes("extrareq")
             ) {
-              if (pColA.includes("/redfish/v1/")) {
-                const uriVal = pColA.trim();
-                const uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
-                if (uriNode) {
-                  uriNode.value = uriVal;
-                  uriNode.excelLoc = getCellMeta(pRowObj, 0);
-                } else {
-                  resourceRoot.children.push(createNode(`${detectedResourceName} URIs`, uriVal, false, getCellMeta(pRowObj, 0)));
-                }
-              }
               break;
             }
-
-            const pColATrimLower = pColA.trim().toLowerCase();
 
             if (
               pColATrimLower === "property" ||
