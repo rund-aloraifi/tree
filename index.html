@@ -1159,7 +1159,7 @@
     async function autoLoadDefaultExcelWorkbook() {
       try {
         showLoading(true, `Loading Master Specification...`);
-        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/main/O-PAS-Redfish-Profile-Master.xlsx?nocache=" + Date.now();
+        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/675a55ebd505066cd11a7a2a855183ae7f265923/O-PAS-Redfish-Profile-Master.xlsx";
 
         const response = await fetch(rawFileUrl);
         if (!response.ok) {
@@ -2290,12 +2290,36 @@
         specs.forEach(s => {
           if (s.key === "MinCount") {
             let membersNode = targetNode.children.find(c => c.label.trim().toLowerCase() === "members");
+            
+            if (!membersNode) {
+              membersNode = findPropertyNodeDeep(targetNode.children, "Members");
+            }
+
             if (!membersNode) {
               membersNode = createNode("Members", null, false, getCellMeta(rowObj, 0), versions);
               targetNode.children.push(membersNode);
             }
+            
             if (!membersNode.children.some(c => c.label.toLowerCase() === "mincount")) {
               membersNode.children.push(createNode("MinCount", s.val, false, getCellMeta(rowObj, 12), versions));
+            }
+
+            const duplicateIndices = [];
+            targetNode.children.forEach((c, idx) => {
+              if (c !== membersNode && c.label.trim().toLowerCase() === "members") {
+                duplicateIndices.push(idx);
+                if (c.children && c.children.length > 0) {
+                  c.children.forEach(ch => {
+                    if (!membersNode.children.some(mCh => mCh.label.toLowerCase() === ch.label.toLowerCase())) {
+                      membersNode.children.push(ch);
+                    }
+                  });
+                }
+              }
+            });
+
+            for (let d = duplicateIndices.length - 1; d >= 0; d--) {
+              targetNode.children.splice(duplicateIndices[d], 1);
             }
           } else {
             if (!targetNode.children.some(c => c.label.toLowerCase() === s.key.toLowerCase())) {
@@ -2402,11 +2426,6 @@
           const resVersions = parseVersionFlags(line);
           const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions);
 
-          const triggerSpecialReqs = String(line[12] || "").trim();
-          if (triggerSpecialReqs) {
-            attachSpecialRequirements(resourceRoot, triggerSpecialReqs, rowObj, resVersions);
-          }
-
           let rowDescIdx = i + 1;
           if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
             const possibleDesc = String(rawRows[rowDescIdx].values[0] || "").trim();
@@ -2467,13 +2486,6 @@
             }
 
             const pColATrimLower = pColA.trim().toLowerCase();
-
-            if (specialReqsRaw) {
-              const lowerSpec = specialReqsRaw.toLowerCase();
-              if (lowerSpec.includes("createresource") || lowerSpec.includes("deleteresource") || lowerSpec.includes("deletresource") || lowerSpec.includes("updateresource") || lowerSpec.includes("mincount1")) {
-                attachSpecialRequirements(resourceRoot, specialReqsRaw, pRowObj, rowVersions);
-              }
-            }
 
             if (
               pColATrimLower === "property" ||
@@ -2667,6 +2679,35 @@
         });
       }
 
+      function deduplicateChildNodes(node) {
+        if (!node.children || node.children.length <= 1) return;
+        const uniqueMap = new Map();
+        const cleanChildren = [];
+
+        node.children.forEach(child => {
+          const key = child.label.trim().toLowerCase();
+          if (uniqueMap.has(key)) {
+            const existing = uniqueMap.get(key);
+            if (child.children && child.children.length > 0) {
+              child.children.forEach(subChild => {
+                if (!existing.children.some(e => e.label.toLowerCase() === subChild.label.toLowerCase())) {
+                  existing.children.push(subChild);
+                }
+              });
+            }
+            if (existing.value === null && child.value !== null) {
+              existing.value = child.value;
+            }
+          } else {
+            uniqueMap.set(key, child);
+            cleanChildren.push(child);
+          }
+        });
+
+        node.children = cleanChildren;
+        node.children.forEach(c => deduplicateChildNodes(c));
+      }
+
       const finalTree = [];
       if (profileNameNode) finalTree.push(profileNameNode);
       if (profilePurposeNode) finalTree.push(profilePurposeNode);
@@ -2674,6 +2715,7 @@
       if (schemasContainerNode.children.length > 0) finalTree.push(schemasContainerNode);
 
       bubbleUpVersions(finalTree);
+      finalTree.forEach(rootNode => deduplicateChildNodes(rootNode));
 
       function cleanPhantomNodes(nodes) {
         return nodes.filter(node => {
