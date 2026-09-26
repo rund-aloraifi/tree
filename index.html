@@ -1058,7 +1058,6 @@
     const ROW_HEIGHT = 30;
     let virtualRowsList = [];
 
-    // Distinct list kept for identification and later segregation
     const AUXILIARY_COMPLEX_TYPES = [
       'ActionInfo', 'Event', 'IPAddress', 'IPStaticAddress', 
       'IPGatewayStaticAddress', 'Payload', 'Identifier', 
@@ -1676,7 +1675,7 @@
             ` : ''}
             <div class="node-actions">
               <button class="action-btn" title="Edit Label" onclick="editNodeLabel('${item.id}')"><i class="fa-solid fa-pen"></i></button>
-              <button class="action-btn" title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
+              <button class="action-btn title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
               <button class="action-btn delete-btn" title="Delete Node" onclick="deleteNode('${item.id}')"><i class="fa-regular fa-trash-can"></i></button>
             </div>
           </div>
@@ -2419,7 +2418,7 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          // Strips numeric and placeholder prefixes like "1.1.4.2 " or "1.1.x.x "
+          // Strips leading numbering and placeholders like 1.1.x.x, 1.1.4.2, etc.
           const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
@@ -2448,9 +2447,12 @@
           }
 
           let rIndex = i + 1;
+          let cur_target_container = resourceRoot; // Container for properties (can be sub-table container)
           let cur_prop_node = null;
           let cur_sub_prop_node = null;
           let cur_sub_sub_prop_node = null;
+          let isParsingEnumTable = false;
+          let currentEnumContainer = null;
 
           while (rIndex < rawRows.length) {
             const pRowObj = rawRows[rIndex];
@@ -2468,20 +2470,22 @@
 
             const pColATrim = pColA.trim();
             const pColATrimLower = pColATrim.toLowerCase();
+            const pColBTrim = pColB.trim();
+            const pColBTrimLower = pColBTrim.toLowerCase();
 
-            // 1. Skip non-essential row markers
-            if (pColATrimLower === "f" && !pColB.trim()) {
+            // 1. Skip empty marker rows
+            if (pColATrimLower === "f" && !pColBTrim) {
               rIndex++;
               continue;
             }
 
-            // 2. Skip URI section header rows (with or without colon)
+            // 2. Skip URI section header rows
             if (/(?:uris|uris:)$/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
 
-            // 3. Capture all URI rows and split multi-line values if present
+            // 3. Multi-URI collection logic
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
@@ -2490,7 +2494,6 @@
               }
 
               const uriLines = pColATrim.split(/[\r\n]+/).map(u => u.trim()).filter(u => u.includes("/redfish/v1/"));
-
               uriLines.forEach(uStr => {
                 const alreadyExists = uriNode.children.some(c => c.value === uStr);
                 if (!alreadyExists) {
@@ -2513,15 +2516,92 @@
               break;
             }
 
-            // 5. Skip table headers and structural descriptions
+            // 5. Detect and handle Table Boundaries (Table XX: ...)
+            if (/^Table\s+\d+:/i.test(pColATrim)) {
+              // Check if it's an Enum/Allowed Values table
+              if (pColATrimLower.includes("values")) {
+                isParsingEnumTable = true;
+                if (cur_prop_node) {
+                  currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
+                  if (!currentEnumContainer) {
+                    currentEnumContainer = createNode("Values", null, true, getCellMeta(pRowObj, 0), rowVersions);
+                    cur_prop_node.children.push(currentEnumContainer);
+                  }
+                }
+              } else {
+                // It's a structural sub-table (e.g. Table 44 for IPv4, Table 45 for IPv6, etc.)
+                isParsingEnumTable = false;
+                currentEnumContainer = null;
+                
+                // Extract clean sub-table name
+                let subTableName = pColATrim.replace(/^Table\s+\d+:\s*/i, "").trim();
+                if (subTableName.toLowerCase().includes("profile map for")) {
+                  subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
+                }
+
+                // Create or find sub-group container
+                let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
+                if (!subGroup) {
+                  subGroup = createNode(subTableName, null, true, getCellMeta(pRowObj, 0), rowVersions);
+                  resourceRoot.children.push(subGroup);
+                }
+                cur_target_container = subGroup;
+                cur_prop_node = null;
+                cur_sub_prop_node = null;
+                cur_sub_sub_prop_node = null;
+              }
+              rIndex++;
+              continue;
+            }
+
+            // 6. Detect sub-object shaded header rows (like "IPAddress (IPv4)", "IPGatewayStaticAddress (IPv6)")
+            if (
+              (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
+              !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
+            ) {
+              isParsingEnumTable = false;
+              let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === pColATrimLower);
+              if (!subGroup) {
+                subGroup = createNode(pColATrim, null, true, getCellMeta(pRowObj, 0), rowVersions);
+                resourceRoot.children.push(subGroup);
+              }
+              cur_target_container = subGroup;
+              cur_prop_node = null;
+              cur_sub_prop_node = null;
+              cur_sub_sub_prop_node = null;
+              rIndex++;
+              continue;
+            }
+
+            // 7. Detect header row of Enum Table ("String" in Col A and "Description" in Col B)
+            if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
+              isParsingEnumTable = true;
+              if (cur_prop_node && !currentEnumContainer) {
+                currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
+                if (!currentEnumContainer) {
+                  currentEnumContainer = createNode("Values", null, true, getCellMeta(pRowObj, 0), rowVersions);
+                  cur_prop_node.children.push(currentEnumContainer);
+                }
+              }
+              rIndex++;
+              continue;
+            }
+
+            // 8. Parse Enum value entries (EUI, UUID, FC_WWN, etc.)
+            if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
+              const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
+              currentEnumContainer.children.push(valNode);
+              rIndex++;
+              continue;
+            }
+
+            // 9. Skip repeated column header labels and metadata text
             if (
               pColATrimLower === "property" ||
               pColATrimLower === "(property)" ||
-              pColATrim.startsWith("Table ") ||
-              /Table\s+[0-9]+:/i.test(pColATrim) ||
               /\([vV]?[0-9]+[_\.0-9a-zA-Z]*\)/.test(pColATrim) || 
-              pColB === "Profile" || 
-              pColC === "Profile" || 
+              pColBTrim === "Profile" || 
+              pColC.trim() === "Profile" || 
               pColATrim === "ProfileName" || 
               pColATrim === "ProfilePurpose" ||
               rIndex === rowDescIdx
@@ -2530,11 +2610,12 @@
               continue;
             }
 
+            // 10. Standard Redfish property parsing
             const reqs = [pLine[2], pLine[3], pLine[4], pLine[5], pLine[6], pLine[7]];
 
             if (pColA === "ResourceRequirement") {
-              attachProfileRequirements(resourceRoot, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(resourceRoot, specialReqsRaw, pRowObj, rowVersions);
+              attachProfileRequirements(cur_target_container, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_target_container, specialReqsRaw, pRowObj, rowVersions);
             } else if (pColA === "Resource MinVersion") {
               const minVersionNode = createNode("MinVersion", null, false, getCellMeta(pRowObj, 0), rowVersions);
               const minVers = [
@@ -2547,18 +2628,18 @@
                   minVersionNode.children.push(createNode(mv.prof, String(mv.ver).trim(), false, getCellMeta(pRowObj, mv.col), rowVersions));
                 }
               });
-              if (minVersionNode.children.length > 0) resourceRoot.children.push(minVersionNode);
+              if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
             } else if (pColA.startsWith("         ") && cur_sub_sub_prop_node) {
               const propName = pColA.trim();
               const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColB.trim()) node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+              if (pColBTrim) node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_sub_prop_node.children.push(node);
             } else if (pColA.startsWith("      ") && cur_sub_prop_node) {
               const propName = pColA.trim();
               cur_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColB.trim()) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+              if (pColBTrim) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_prop_node.children.push(cur_sub_sub_prop_node);
@@ -2569,19 +2650,21 @@
               }
               cur_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_sub_prop_node = null;
-              if (pColB.trim()) cur_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+              if (pColBTrim) cur_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_prop_node.children.push(cur_sub_prop_node);
-            } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
-              const propName = pColA.trim();
+            } else if (pColATrim && !pColATrim.startsWith("Profile") && pColATrim !== "ResourceRequirement" && pColATrim !== "Resource MinVersion") {
+              const propName = pColATrim;
               cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_prop_node = null;
               cur_sub_sub_prop_node = null;
-              if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+              isParsingEnumTable = false;
+              currentEnumContainer = null;
+              if (pColBTrim) cur_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
-              resourceRoot.children.push(cur_prop_node);
+              cur_target_container.children.push(cur_prop_node);
             }
 
             rIndex++;
