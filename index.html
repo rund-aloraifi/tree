@@ -2463,37 +2463,41 @@
             const pColATrim = pColA.trim();
             const pColATrimLower = pColATrim.toLowerCase();
 
-            // 1. تجاهل الأسطر غير المهمة
+            // 1. Skip non-essential row markers
             if (pColATrimLower === "f" && !pColB.trim()) {
               rIndex++;
               continue;
             }
 
-            // 2. تخطي سطر ترويسة الروابط سواء كانت 'URIs' أو 'URIs:' لتجنب إنشاء عقد فارغة
+            // 2. Skip URI section header rows (with or without colon)
             if (/(?:uris|uris:)$/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
 
-            // 3. التقاط وتجميع كافة الروابط بدون عمل خروج من الحلقة
+            // 3. Capture all URI rows and split multi-line values if present
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
-                uriNode = createNode(`${detectedResourceName} URIs`, null, false, getCellMeta(pRowObj, 0), rowVersions);
+                uriNode = createNode(`${detectedResourceName} URIs`, null, true, getCellMeta(pRowObj, 0), rowVersions);
                 resourceRoot.children.push(uriNode);
               }
 
-              // التحقق من عدم التكرار ثم إضافة الرابط كعقدة مصفوفية
-              const exists = uriNode.children.some(c => (c.value || c.label) === pColATrim);
-              if (!exists) {
-                uriNode.children.push(createNode("", pColATrim, false, getCellMeta(pRowObj, 0), rowVersions));
-              }
+              const uriLines = pColATrim.split(/[\r\n]+/).map(u => u.trim()).filter(u => u.includes("/redfish/v1/"));
+
+              uriLines.forEach(uStr => {
+                const alreadyExists = uriNode.children.some(c => c.value === uStr);
+                if (!alreadyExists) {
+                  const uriIndex = uriNode.children.length + 1;
+                  uriNode.children.push(createNode(`URI [${uriIndex}]`, uStr, false, getCellMeta(pRowObj, 0), rowVersions));
+                }
+              });
 
               rIndex++;
               continue;
             }
 
-            // 4. إيقاف الفحص عند الوصول إلى بداية قسم جديد رئيسي فقط
+            // 4. Terminate property loop only upon reaching the next primary resource or conditional block
             if (
               pColATrim.startsWith("1.1.") || 
               pColATrim.startsWith("6.5.") || 
@@ -2503,7 +2507,7 @@
               break;
             }
 
-            // 5. تجاهل ترويسات الجداول والبيانات الوصفية
+            // 5. Skip table headers and structural descriptions
             if (
               pColATrimLower === "property" ||
               pColATrimLower === "(property)" ||
