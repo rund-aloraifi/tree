@@ -1062,7 +1062,7 @@
     const AUXILIARY_COMPLEX_TYPES = [
       'ActionInfo', 'Event', 'IPAddress', 'IPStaticAddress', 
       'IPGatewayStaticAddress', 'Payload', 'Identifier', 
-      'AttributeRegistry', 'Common', 'Payload Annotations', 
+      'AttributeRegistry', 'Common', 'Common Properties', 'Payload Annotations', 
       'MaintananceWindow', 'OperationApplyTimeSupport', 
       'PreferredApplyTime', 'Redundancy', 'Schedule', 'Settings'
     ];
@@ -2419,8 +2419,8 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          const testString = colA.split(/\s+/).filter(Boolean);
-          const candidateName = testString[testString.length - 1];
+          // Strips the numeric prefix (e.g. '1.1.4.2 ') and retains full string like 'Common Properties'
+          const candidateName = colA.replace(/^1\.1(?:\.\d+)*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
             isResourceTrigger = true;
