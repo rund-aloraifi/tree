@@ -1058,7 +1058,8 @@
     const ROW_HEIGHT = 30;
     let virtualRowsList = [];
 
-    const RESOURCE_BLACKLIST = [
+    // Distinct list kept for identification and later segregation
+    const AUXILIARY_COMPLEX_TYPES = [
       'ActionInfo', 'Event', 'IPAddress', 'IPStaticAddress', 
       'IPGatewayStaticAddress', 'Payload', 'Identifier', 
       'AttributeRegistry', 'Common', 'Payload Annotations', 
@@ -1555,6 +1556,8 @@
               expanded: node.children && node.children.length > 0 ? true : node.expanded,
               excelLoc: node.excelLoc,
               opasVersions: node.opasVersions,
+              isAuxiliary: node.isAuxiliary,
+              isComplexType: node.isComplexType,
               children: node.children || []
             });
           } else {
@@ -1572,6 +1575,8 @@
                 expanded: true,
                 excelLoc: node.excelLoc,
                 opasVersions: node.opasVersions,
+                isAuxiliary: node.isAuxiliary,
+                isComplexType: node.isComplexType,
                 children: matchingChildren
               });
             }
@@ -2218,7 +2223,7 @@
       if (!rawRows || rawRows.length === 0) return [];
 
       let nodeCount = 0;
-      function createNode(label, value = null, isExpanded = false, loc = null, versions = null) {
+      function createNode(label, value = null, isExpanded = false, loc = null, versions = null, isAux = false) {
         return {
           id: "n_" + (++nodeCount),
           label: String(label).trim(),
@@ -2227,6 +2232,8 @@
           expanded: isExpanded,
           excelLoc: loc,
           opasVersions: versions || { v1: false, v2: false, v3: false },
+          isAuxiliary: isAux,
+          isComplexType: isAux,
           children: []
         };
       }
@@ -2409,14 +2416,12 @@
         let detectedResourceName = "";
 
         if (colA.startsWith("6.5.")) {
-          if (!RESOURCE_BLACKLIST.includes(colB.trim())) {
-            detectedResourceName = colB.trim();
-            isResourceTrigger = true;
-          }
+          detectedResourceName = colB.trim();
+          isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
           const testString = colA.split(/\s+/).filter(Boolean);
           const candidateName = testString[testString.length - 1];
-          if (!RESOURCE_BLACKLIST.includes(candidateName)) {
+          if (candidateName) {
             detectedResourceName = candidateName;
             isResourceTrigger = true;
           }
@@ -2424,7 +2429,8 @@
 
         if (isResourceTrigger && detectedResourceName) {
           const resVersions = parseVersionFlags(line);
-          const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions);
+          const isAuxiliaryType = AUXILIARY_COMPLEX_TYPES.some(t => t.toLowerCase() === detectedResourceName.toLowerCase());
+          const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions, isAuxiliaryType);
 
           let rowDescIdx = i + 1;
           if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
@@ -3167,6 +3173,8 @@
           expanded: node.expanded,
           excelLoc: node.excelLoc,
           opasVersions: node.opasVersions,
+          isAuxiliary: node.isAuxiliary,
+          isComplexType: node.isComplexType,
           children: filteredChildren
         });
       });
