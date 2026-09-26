@@ -2419,8 +2419,8 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          // Strips the numeric prefix (e.g. '1.1.4.2 ') and retains full string like 'Common Properties'
-          const candidateName = colA.replace(/^1\.1(?:\.\d+)*\s*/, "").trim();
+          // Strips numeric and placeholder prefixes like "1.1.4.2 " or "1.1.x.x "
+          const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
             isResourceTrigger = true;
