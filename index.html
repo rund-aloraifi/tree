@@ -2432,7 +2432,7 @@
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        // Check for 3-part Section Grouping Folder (e.g. 1.1.2 Event)[cite: 8]
+        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event)[cite: 8]
         const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
         if (folderMatch) {
           const folderName = folderMatch[2].trim();
@@ -2450,7 +2450,7 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          // Strips leading numbering and placeholders (e.g., 1.1.2.1 Event -> Event)[cite: 8]
+          // Strips numeric/placeholder prefixes like 1.1.2.1 Event -> Event[cite: 8]
           const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
@@ -2505,19 +2505,19 @@
             const pColBTrim = pColB.trim();
             const pColBTrimLower = pColBTrim.toLowerCase();
 
-            // 1. Skip empty marker rows
+            // Skip empty marker rows
             if (pColATrimLower === "f" && !pColBTrim) {
               rIndex++;
               continue;
             }
 
-            // 2. Skip URI section header rows
+            // Skip URI section header rows
             if (/(?:uris|uris:)$/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
 
-            // 3. Multi-URI collection logic
+            // Multi-URI collection logic
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
@@ -2538,7 +2538,7 @@
               continue;
             }
 
-            // 4. Terminate property loop on next section or conditional block
+            // Terminate property loop on next section or conditional block
             if (
               pColATrim.startsWith("1.1.") || 
               pColATrim.startsWith("6.5.") || 
@@ -2548,7 +2548,7 @@
               break;
             }
 
-            // 5. Detect and handle Table Boundaries (Table XX: ...)[cite: 6, 7]
+            // Table Boundaries: Only create sub-containers for actual variant tables (e.g. IPv4/IPv6)[cite: 6]
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
@@ -2568,12 +2568,23 @@
                   subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
                 }
 
-                let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
-                if (!subGroup) {
-                  subGroup = createNode(subTableName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                  resourceRoot.children.push(subGroup);
+                // Check if this table is an explicit variant (e.g. IPv4 vs IPv6)[cite: 6]
+                const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
+                                       /\(ipv[46]\)/i.test(subTableName) ||
+                                       (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
+
+                if (isVariantTable) {
+                  let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
+                  if (!subGroup) {
+                    subGroup = createNode(subTableName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+                    resourceRoot.children.push(subGroup);
+                  }
+                  cur_target_container = subGroup;
+                } else {
+                  // Standard main resource table: put properties directly under the resource root!
+                  cur_target_container = resourceRoot;
                 }
-                cur_target_container = subGroup;
+
                 cur_prop_node = null;
                 cur_sub_prop_node = null;
                 cur_sub_sub_prop_node = null;
@@ -2582,7 +2593,7 @@
               continue;
             }
 
-            // 6. Detect sub-object shaded header rows (e.g. IPAddress (IPv4))[cite: 6]
+            // Shaded sub-object variant headers (e.g. IPAddress (IPv4))[cite: 6]
             if (
               (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
               !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
@@ -2601,7 +2612,7 @@
               continue;
             }
 
-            // 7. Detect header row of Enum Table[cite: 7]
+            // Header row of Enum Table (String | Description)[cite: 7]
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
               if (cur_prop_node && !currentEnumContainer) {
@@ -2615,7 +2626,7 @@
               continue;
             }
 
-            // 8. Parse Enum value entries[cite: 7]
+            // Parse Enum value entries (EUI, UUID, etc.)[cite: 7]
             if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
               const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
               currentEnumContainer.children.push(valNode);
@@ -2623,7 +2634,7 @@
               continue;
             }
 
-            // 9. Skip repeated column header labels and metadata text[cite: 7]
+            // Skip table labels, profile repeated headers
             if (
               pColATrimLower === "property" ||
               pColATrimLower === "(property)" ||
@@ -2638,7 +2649,7 @@
               continue;
             }
 
-            // 10. Standard Redfish property parsing
+            // Standard property mapping
             const reqs = [pLine[2], pLine[3], pLine[4], pLine[5], pLine[6], pLine[7]];
 
             if (pColA === "ResourceRequirement") {
@@ -2698,7 +2709,6 @@
             rIndex++;
           }
 
-          // Place inside active section folder if available, else in root Resources
           if (currentActiveFolder) {
             currentActiveFolder.children.push(resourceRoot);
           } else {
