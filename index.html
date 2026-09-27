@@ -1533,7 +1533,7 @@
           value: displayVal,
           depth: currentDepth,
           hasChildren: effectiveChildren.length > 0,
-          expanded: node.expanded !== false,
+          expanded: node.expanded === true,
           checked: node.checked !== false,
           excelLoc: displayLoc,
           isFolder: node.isFolder === true
@@ -1968,6 +1968,7 @@
             }
 
             file.treeData = parseSheetXmlToTreeData(xmlContent, sheetName, sharedStrings);
+            setExpandedRecursive(file.treeData, false);
             updateProfileDropdowns();
             refreshView();
             if (!isPaneHidden) updateOutputFromTree();
@@ -2095,6 +2096,7 @@
       }
 
       const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
+      setExpandedRecursive(convertedTree, false);
       createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
 
       const sheetSelect = document.getElementById("excel-sheet-select");
@@ -2133,6 +2135,7 @@
 
             if (typeof parsed === 'object' && parsed !== null) {
               const convertedTree = objectToTreeData(parsed, []);
+              setExpandedRecursive(convertedTree, false);
               createNewFileTab(fileName, convertedTree, format, null);
             }
           } catch (err) {
@@ -2244,7 +2247,7 @@
           label: String(label).trim(),
           value: value !== null ? parseTypedValue(String(value)) : null,
           checked: true,
-          expanded: isExpanded,
+          expanded: false,
           excelLoc: loc,
           opasVersions: versions || { v1: false, v2: false, v3: false },
           isAuxiliary: isAux,
@@ -2396,7 +2399,7 @@
         }
 
         if (rowHeader === "ProfileName") {
-          profileNameNode = createNode("ProfileName", null, true, getCellMeta(rowObj, 0));
+          profileNameNode = createNode("ProfileName", null, false, getCellMeta(rowObj, 0));
           const p1 = String(row[2] || row[3] || "").trim();
           const p2 = String(row[4] || row[5] || "").trim();
           const p3 = String(row[6] || row[7] || "").trim();
@@ -2404,7 +2407,7 @@
           if (p2) profileNameNode.children.push(createNode("OSM-RedfishBMC", p2, false, getCellMeta(rowObj, row[4] ? 4 : 5)));
           if (p3) profileNameNode.children.push(createNode("OSM-RedfishDCN", p3, false, getCellMeta(rowObj, row[6] ? 6 : 7)));
         } else if (rowHeader === "ProfilePurpose") {
-          profilePurposeNode = createNode("ProfilePurpose", null, true, getCellMeta(rowObj, 0));
+          profilePurposeNode = createNode("ProfilePurpose", null, false, getCellMeta(rowObj, 0));
           const purp1 = String(row[2] || row[3] || "").trim();
           const purp2 = String(row[4] || row[5] || "").trim();
           const purp3 = String(row[6] || row[7] || "").trim();
@@ -2414,7 +2417,7 @@
         }
       }
 
-      const resourcesContainerNode = createNode("Resources", null, true);
+      const resourcesContainerNode = createNode("Resources", null, false);
       let currentActiveFolder = null;
 
       let i = 0;
@@ -2429,12 +2432,12 @@
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        // Check for 3-part Section Grouping Folder (e.g. 1.1.2 Event)
+        // Check for 3-part Section Grouping Folder (e.g. 1.1.2 Event)[cite: 8]
         const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
         if (folderMatch) {
           const folderName = folderMatch[2].trim();
           const folderVersions = parseVersionFlags(line);
-          currentActiveFolder = createNode(folderName, null, true, getCellMeta(rowObj, 0), folderVersions, false, true);
+          currentActiveFolder = createNode(folderName, null, false, getCellMeta(rowObj, 0), folderVersions, false, true);
           resourcesContainerNode.children.push(currentActiveFolder);
           i++;
           continue;
@@ -2447,7 +2450,7 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          // Strips leading numbering and placeholders (e.g., 1.1.2.1 Event -> Event)
+          // Strips leading numbering and placeholders (e.g., 1.1.2.1 Event -> Event)[cite: 8]
           const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
@@ -2518,7 +2521,7 @@
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
-                uriNode = createNode(`${detectedResourceName} URIs`, null, true, getCellMeta(pRowObj, 0), rowVersions);
+                uriNode = createNode(`${detectedResourceName} URIs`, null, false, getCellMeta(pRowObj, 0), rowVersions);
                 resourceRoot.children.push(uriNode);
               }
 
@@ -2545,14 +2548,14 @@
               break;
             }
 
-            // 5. Detect and handle Table Boundaries (Table XX: ...)
+            // 5. Detect and handle Table Boundaries (Table XX: ...)[cite: 6, 7]
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
                 if (cur_prop_node) {
                   currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
-                    currentEnumContainer = createNode("Values", null, true, getCellMeta(pRowObj, 0), rowVersions);
+                    currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
                     cur_prop_node.children.push(currentEnumContainer);
                   }
                 }
@@ -2567,7 +2570,7 @@
 
                 let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
                 if (!subGroup) {
-                  subGroup = createNode(subTableName, null, true, getCellMeta(pRowObj, 0), rowVersions);
+                  subGroup = createNode(subTableName, null, false, getCellMeta(pRowObj, 0), rowVersions);
                   resourceRoot.children.push(subGroup);
                 }
                 cur_target_container = subGroup;
@@ -2579,7 +2582,7 @@
               continue;
             }
 
-            // 6. Detect sub-object shaded header rows (e.g. IPAddress (IPv4))
+            // 6. Detect sub-object shaded header rows (e.g. IPAddress (IPv4))[cite: 6]
             if (
               (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
               !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
@@ -2587,7 +2590,7 @@
               isParsingEnumTable = false;
               let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === pColATrimLower);
               if (!subGroup) {
-                subGroup = createNode(pColATrim, null, true, getCellMeta(pRowObj, 0), rowVersions);
+                subGroup = createNode(pColATrim, null, false, getCellMeta(pRowObj, 0), rowVersions);
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
@@ -2598,13 +2601,13 @@
               continue;
             }
 
-            // 7. Detect header row of Enum Table
+            // 7. Detect header row of Enum Table[cite: 7]
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
               if (cur_prop_node && !currentEnumContainer) {
                 currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
-                  currentEnumContainer = createNode("Values", null, true, getCellMeta(pRowObj, 0), rowVersions);
+                  currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
                   cur_prop_node.children.push(currentEnumContainer);
                 }
               }
@@ -2612,7 +2615,7 @@
               continue;
             }
 
-            // 8. Parse Enum value entries
+            // 8. Parse Enum value entries[cite: 7]
             if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
               const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
               currentEnumContainer.children.push(valNode);
@@ -2620,7 +2623,7 @@
               continue;
             }
 
-            // 9. Skip repeated column header labels and metadata text
+            // 9. Skip repeated column header labels and metadata text[cite: 7]
             if (
               pColATrimLower === "property" ||
               pColATrimLower === "(property)" ||
@@ -3232,8 +3235,6 @@
       const file = getActiveFile();
       if (!file) return;
       setExpandedRecursive(file.treeData, false);
-      const resContainer = file.treeData.find(n => n.label === "Resources");
-      if (resContainer) resContainer.expanded = true;
       refreshVirtualTree();
     }
 
@@ -3301,7 +3302,6 @@
       let obj = {};
       nodes.forEach(node => {
         if (node.checked && nodeMatchesVersionScope(node, versionScope)) {
-          // If the node is an organizational folder, unwrap its children directly into the parent container
           if (node.isFolder && node.children && node.children.length > 0) {
             const folderChildrenObj = buildExportObject(node.children, versionScope);
             Object.assign(obj, folderChildrenObj);
@@ -3400,7 +3400,7 @@
             label: "",
             value: !isObject ? val : null,
             checked: existingNode ? existingNode.checked : true,
-            expanded: existingNode ? existingNode.expanded : false,
+            expanded: false,
             excelLoc: existingNode ? existingNode.excelLoc : null,
             opasVersions: existingNode ? existingNode.opasVersions : { v1: true, v2: true, v3: true },
             children: isObject ? objectToTreeData(val, existingNode ? existingNode.children : []) : []
@@ -3420,7 +3420,7 @@
           label: cleanKey,
           value: !isObjectOrArray ? (val !== undefined && val !== null ? val : null) : null,
           checked: existingNode ? existingNode.checked : true,
-          expanded: existingNode ? existingNode.expanded : false,
+          expanded: false,
           excelLoc: existingNode ? existingNode.excelLoc : null,
           opasVersions: existingNode ? existingNode.opasVersions : { v1: true, v2: true, v3: true },
           children: isObjectOrArray ? objectToTreeData(val, existingNode ? existingNode.children : []) : []
