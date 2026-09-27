@@ -334,8 +334,14 @@
       display: none !important;
     }
 
-    body.edit-mode-active .btn-add-root {
+    body.edit-mode-active:not(.excel-file-active) .btn-add-root {
       display: inline-flex !important;
+    }
+
+    /* Prohibit adding nodes when editing Excel workbooks */
+    body.excel-file-active .btn-add-root,
+    body.excel-file-active .action-btn.add-child-btn {
+      display: none !important;
     }
 
     .btn {
@@ -1691,7 +1697,7 @@
             ` : ''}
             <div class="node-actions">
               <button class="action-btn" title="Edit Label" onclick="editNodeLabel('${item.id}')"><i class="fa-solid fa-pen"></i></button>
-              <button class="action-btn" title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
+              <button class="action-btn add-child-btn" title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
               <button class="action-btn delete-btn" title="Delete Node" onclick="deleteNode('${item.id}')"><i class="fa-regular fa-trash-can"></i></button>
             </div>
           </div>
@@ -1915,11 +1921,22 @@
       switchToFileTab(fileId);
     }
 
+    function isActiveFileExcel() {
+      const file = getActiveFile();
+      return !!(file && (file.zip || /\.xlsx$|\.xls$|\.csv$/i.test(file.name || '')));
+    }
+
     function switchToFileTab(fileId) {
       activeFileId = fileId;
       const currentFile = getActiveFile();
 
       if (currentFile) {
+        if (isActiveFileExcel()) {
+          document.body.classList.add("excel-file-active");
+        } else {
+          document.body.classList.remove("excel-file-active");
+        }
+
         renderTabsUI();
         updateSheetDropdown(currentFile);
         switchFormat(currentFile.format, false);
@@ -2568,7 +2585,7 @@
                   subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
                 }
 
-                // Check if this table is an explicit variant (e.g. IPv4 vs IPv6)[cite: 6]
+                // Check if this table represents an explicit variant (e.g. IPv4 vs IPv6)[cite: 6]
                 const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
                                        /\(ipv[46]\)/i.test(subTableName) ||
                                        (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
@@ -3151,6 +3168,10 @@
 
     function addChildNode(parentId) {
       if (!isEditMode) return;
+      if (isActiveFileExcel()) {
+        alert("Adding new nodes is disabled for Excel workbooks to preserve workbook schema integrity.");
+        return;
+      }
       const label = prompt("Enter new child node key/name (e.g., ReadRequirement or WriteRequirement):");
       if (!label) return;
 
@@ -3204,10 +3225,14 @@
         alert("Please enable Edit Mode first to add nodes.");
         return;
       }
+      if (isActiveFileExcel()) {
+        alert("Adding root nodes is disabled for Excel workbooks.");
+        return;
+      }
       
       let file = getActiveFile();
       if (!file) {
-        createNewFileTab("new_specification.xlsx", [], 'yaml', null);
+        createNewFileTab("new_specification.yaml", [], 'yaml', null);
         file = getActiveFile();
       }
 
