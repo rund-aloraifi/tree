@@ -338,7 +338,6 @@
       display: inline-flex !important;
     }
 
-    /* Prohibit adding nodes when editing Excel workbooks */
     body.excel-file-active .btn-add-root,
     body.excel-file-active .action-btn.add-child-btn {
       display: none !important;
@@ -2449,7 +2448,7 @@
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event)[cite: 8]
+        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event)
         const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
         if (folderMatch) {
           const folderName = folderMatch[2].trim();
@@ -2467,7 +2466,7 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          // Strips numeric/placeholder prefixes like 1.1.2.1 Event -> Event[cite: 8]
+          // Strips numeric/placeholder prefixes like 1.1.2.1 Event -> Event
           const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
@@ -2565,7 +2564,7 @@
               break;
             }
 
-            // Table Boundaries: Only create sub-containers for actual variant tables (e.g. IPv4/IPv6)[cite: 6]
+            // Table Boundaries: Only create sub-containers for actual variant tables (e.g. IPv4/IPv6)
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
@@ -2585,7 +2584,7 @@
                   subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
                 }
 
-                // Check if this table represents an explicit variant (e.g. IPv4 vs IPv6)[cite: 6]
+                // Check if this table represents an explicit variant (e.g. IPv4 vs IPv6)
                 const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
                                        /\(ipv[46]\)/i.test(subTableName) ||
                                        (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
@@ -2610,7 +2609,7 @@
               continue;
             }
 
-            // Shaded sub-object variant headers (e.g. IPAddress (IPv4))[cite: 6]
+            // Shaded sub-object variant headers (e.g. IPAddress (IPv4))
             if (
               (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
               !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
@@ -2629,7 +2628,7 @@
               continue;
             }
 
-            // Header row of Enum Table (String | Description)[cite: 7]
+            // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
               if (cur_prop_node && !currentEnumContainer) {
@@ -2643,7 +2642,7 @@
               continue;
             }
 
-            // Parse Enum value entries (EUI, UUID, etc.)[cite: 7]
+            // Parse Enum value entries (EUI, UUID, etc.)
             if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
               const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
               currentEnumContainer.children.push(valNode);
@@ -3495,11 +3494,25 @@
 
     function downloadFile() {
       const file = getActiveFile();
-      const blob = new Blob([codeRawText], { type: "text/plain;charset=utf-8" });
+      const format = file ? file.format : 'yaml';
+      
+      if (!codeRawText) {
+        const codeContainer = document.getElementById("code-output");
+        codeRawText = codeContainer.innerText || codeContainer.textContent || "";
+      }
+
+      const mimeType = format === 'json' ? "application/json" : "text/yaml";
+      const blob = new Blob([codeRawText], { type: `${mimeType};charset=utf-8` });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = file ? file.name : `tree-data.${file ? file.format : 'yaml'}`;
+
+      const baseName = file && file.name ? file.name.replace(/\.[^/.]+$/, "") : "profile-specification";
+      link.download = `${baseName}.${format}`;
+
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
     }
   </script>
 </body>
