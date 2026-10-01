@@ -2665,8 +2665,19 @@
               continue;
             }
 
-            // Standard property mapping
+            // Standard property mapping with robust whitespace normalization
             const reqs = [pLine[2], pLine[3], pLine[4], pLine[5], pLine[6], pLine[7]];
+
+            const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
+            const normalizedSpaceCount = rawPrefixMatch
+              .replace(/\t/g, "   ")
+              .replace(/\u00A0/g, " ")
+              .length;
+
+            let indentDepth = 0;
+            if (normalizedSpaceCount >= 8) indentDepth = 3;
+            else if (normalizedSpaceCount >= 5) indentDepth = 2;
+            else if (normalizedSpaceCount >= 1) indentDepth = 1;
 
             if (pColA === "ResourceRequirement") {
               attachProfileRequirements(cur_target_container, reqs, pRowObj, rowVersions);
@@ -2684,22 +2695,22 @@
                 }
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
-            } else if (pColA.startsWith("         ") && cur_sub_sub_prop_node) {
-              const propName = pColA.trim();
+            } else if (indentDepth === 3 && cur_sub_sub_prop_node) {
+              const propName = pColATrim;
               const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColBTrim) node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_sub_prop_node.children.push(node);
-            } else if (pColA.startsWith("      ") && cur_sub_prop_node) {
-              const propName = pColA.trim();
+            } else if (indentDepth === 2 && cur_sub_prop_node) {
+              const propName = pColATrim;
               cur_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColBTrim) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_prop_node.children.push(cur_sub_sub_prop_node);
-            } else if (pColA.startsWith("   ") && cur_prop_node) {
-              let propName = pColA.trim();
+            } else if (indentDepth === 1 && cur_prop_node) {
+              let propName = pColATrim;
               if (cur_prop_node.label === "Actions" && propName.includes(".")) {
                 propName = propName.split(".")[1];
               }
@@ -2709,7 +2720,7 @@
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_prop_node.children.push(cur_sub_prop_node);
-            } else if (pColATrim && !pColATrim.startsWith("Profile") && pColATrim !== "ResourceRequirement" && pColATrim !== "Resource MinVersion") {
+            } else if (indentDepth === 0 && pColATrim && !pColATrim.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
               const propName = pColATrim;
               cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_prop_node = null;
