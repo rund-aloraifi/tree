@@ -2448,7 +2448,7 @@
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event)
+        // Section Grouping Folders (e.g. 1.1.2 Event)
         const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
         if (folderMatch) {
           const folderName = folderMatch[2].trim();
@@ -2466,7 +2466,6 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          // Strips numeric/placeholder prefixes like 1.1.2.1 Event -> Event
           const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
@@ -2496,11 +2495,18 @@
 
           let rIndex = i + 1;
           let cur_target_container = resourceRoot; 
-          let cur_prop_node = null;
-          let cur_sub_prop_node = null;
-          let cur_sub_sub_prop_node = null;
+
+          // Universal dynamic indentation stack architecture
+          let nodeStack = [resourceRoot];
+          let levelsStack = [0];
+
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
+
+          function resetIndentStack() {
+            nodeStack = [cur_target_container];
+            levelsStack = [0];
+          }
 
           while (rIndex < rawRows.length) {
             const pRowObj = rawRows[rIndex];
@@ -2568,11 +2574,12 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                if (cur_prop_node) {
-                  currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
+                const lastNode = nodeStack[nodeStack.length - 1];
+                if (lastNode && lastNode !== cur_target_container) {
+                  currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
                     currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    cur_prop_node.children.push(currentEnumContainer);
+                    lastNode.children.push(currentEnumContainer);
                   }
                 }
               } else {
@@ -2584,7 +2591,6 @@
                   subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
                 }
 
-                // Check if this table represents an explicit variant (e.g. IPv4 vs IPv6)
                 const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
                                        /\(ipv[46]\)/i.test(subTableName) ||
                                        (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
@@ -2597,13 +2603,10 @@
                   }
                   cur_target_container = subGroup;
                 } else {
-                  // Standard main resource table: put properties directly under the resource root!
                   cur_target_container = resourceRoot;
                 }
 
-                cur_prop_node = null;
-                cur_sub_prop_node = null;
-                cur_sub_sub_prop_node = null;
+                resetIndentStack();
               }
               rIndex++;
               continue;
@@ -2621,9 +2624,7 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              cur_prop_node = null;
-              cur_sub_prop_node = null;
-              cur_sub_sub_prop_node = null;
+              resetIndentStack();
               rIndex++;
               continue;
             }
@@ -2631,11 +2632,12 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              if (cur_prop_node && !currentEnumContainer) {
-                currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
+              const lastNode = nodeStack[nodeStack.length - 1];
+              if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
+                currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
                   currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                  cur_prop_node.children.push(currentEnumContainer);
+                  lastNode.children.push(currentEnumContainer);
                 }
               }
               rIndex++;
@@ -2665,19 +2667,7 @@
               continue;
             }
 
-            // Standard property mapping with robust whitespace normalization
             const reqs = [pLine[2], pLine[3], pLine[4], pLine[5], pLine[6], pLine[7]];
-
-            const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
-            const normalizedSpaceCount = rawPrefixMatch
-              .replace(/\t/g, "   ")
-              .replace(/\u00A0/g, " ")
-              .length;
-
-            let indentDepth = 0;
-            if (normalizedSpaceCount >= 8) indentDepth = 3;
-            else if (normalizedSpaceCount >= 5) indentDepth = 2;
-            else if (normalizedSpaceCount >= 1) indentDepth = 1;
 
             if (pColA === "ResourceRequirement") {
               attachProfileRequirements(cur_target_container, reqs, pRowObj, rowVersions);
@@ -2695,42 +2685,62 @@
                 }
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
-            } else if (indentDepth === 3 && cur_sub_sub_prop_node) {
-              const propName = pColATrim;
-              const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColBTrim) node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(node, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(node, specialReqsRaw, pRowObj, rowVersions);
-              cur_sub_sub_prop_node.children.push(node);
-            } else if (indentDepth === 2 && cur_sub_prop_node) {
-              const propName = pColATrim;
-              cur_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColBTrim) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(cur_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
-              cur_sub_prop_node.children.push(cur_sub_sub_prop_node);
-            } else if (indentDepth === 1 && cur_prop_node) {
+            } else if (pColATrim && !pColATrim.startsWith("Profile")) {
+              // --- UNIVERSAL DYNAMIC INDENTATION ALGORITHM ---
+              const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
+              const normalizedSpaceCount = rawPrefixMatch
+                .replace(/\t/g, "   ")
+                .replace(/\u00A0/g, " ")
+                .length;
+
               let propName = pColATrim;
-              if (cur_prop_node.label === "Actions" && propName.includes(".")) {
+              const parentCandidate = nodeStack[nodeStack.length - 1];
+              if (parentCandidate && parentCandidate.label === "Actions" && propName.includes(".")) {
                 propName = propName.split(".")[1];
               }
-              cur_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              cur_sub_sub_prop_node = null;
-              if (pColBTrim) cur_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
-              cur_prop_node.children.push(cur_sub_prop_node);
-            } else if (indentDepth === 0 && pColATrim && !pColATrim.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
-              const propName = pColATrim;
-              cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              cur_sub_prop_node = null;
-              cur_sub_sub_prop_node = null;
+
+              const newNode = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              if (pColBTrim) newNode.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
+
+              if (normalizedSpaceCount === 0) {
+                // Root property: reset stack to level 0
+                nodeStack = [cur_target_container, newNode];
+                levelsStack = [0, 0];
+                cur_target_container.children.push(newNode);
+              } else {
+                const currentTopIndent = levelsStack[levelsStack.length - 1];
+
+                if (normalizedSpaceCount > currentTopIndent) {
+                  // Deeper child level: parent is top of stack
+                  const parentNode = nodeStack[nodeStack.length - 1];
+                  parentNode.children.push(newNode);
+                  nodeStack.push(newNode);
+                  levelsStack.push(normalizedSpaceCount);
+                } else if (normalizedSpaceCount === currentTopIndent) {
+                  // Sibling at current depth: replace current top of stack
+                  nodeStack.pop();
+                  levelsStack.pop();
+                  const parentNode = nodeStack[nodeStack.length - 1];
+                  parentNode.children.push(newNode);
+                  nodeStack.push(newNode);
+                  levelsStack.push(normalizedSpaceCount);
+                } else {
+                  // Step back / Dedent: pop until we find a parent with strictly fewer leading spaces
+                  while (levelsStack.length > 1 && levelsStack[levelsStack.length - 1] >= normalizedSpaceCount) {
+                    nodeStack.pop();
+                    levelsStack.pop();
+                  }
+                  const parentNode = nodeStack[nodeStack.length - 1];
+                  parentNode.children.push(newNode);
+                  nodeStack.push(newNode);
+                  levelsStack.push(normalizedSpaceCount);
+                }
+              }
+
               isParsingEnumTable = false;
               currentEnumContainer = null;
-              if (pColBTrim) cur_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
-              cur_target_container.children.push(cur_prop_node);
             }
 
             rIndex++;
