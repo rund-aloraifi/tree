@@ -700,7 +700,7 @@
       width: 110px;
     }
 
-    .code-search-box .search-stat {
+    .search-stat {
       font-size: 0.72rem;
       color: var(--text-muted);
       white-space: nowrap;
@@ -2536,16 +2536,16 @@
           let rIndex = i + 1;
           let cur_target_container = resourceRoot; 
 
-          // Universal dynamic indentation stack architecture
-          let nodeStack = [resourceRoot];
-          let levelsStack = [0];
+          // Object-Context Anchored Tree Hierarchy Architecture
+          let activeObjectAnchor = null;
+          let activeSubAnchor = null;
 
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
 
-          function resetIndentStack() {
-            nodeStack = [cur_target_container];
-            levelsStack = [0];
+          function resetPropertyContext() {
+            activeObjectAnchor = null;
+            activeSubAnchor = null;
           }
 
           while (rIndex < rawRows.length) {
@@ -2614,7 +2614,7 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = nodeStack[nodeStack.length - 1];
+                const lastNode = activeSubAnchor || activeObjectAnchor;
                 if (lastNode && lastNode !== cur_target_container) {
                   currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
@@ -2646,7 +2646,7 @@
                   cur_target_container = resourceRoot;
                 }
 
-                resetIndentStack();
+                resetPropertyContext();
               }
               rIndex++;
               continue;
@@ -2664,7 +2664,7 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              resetIndentStack();
+              resetPropertyContext();
               rIndex++;
               continue;
             }
@@ -2672,7 +2672,7 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = nodeStack[nodeStack.length - 1];
+              const lastNode = activeSubAnchor || activeObjectAnchor;
               if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
                 currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
@@ -2726,11 +2726,11 @@
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
             } else if (pColATrim && !pColATrim.startsWith("Profile")) {
-              // --- UNIVERSAL INDENTATION + DOT-NOTATION RESOLUTION ---
-              let targetParent = cur_target_container;
+              // --- OBJECT-CONTEXT ANCHORED PROPERTY PARSER ---
+              let explicitParent = null;
               let effectiveLabel = pColATrim;
 
-              // 1. Resolve explicit dot notation (e.g. MemoryLocation.Channel)
+              // Check for dot notation (e.g. MemoryLocation.Channel)
               if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
                 const dotSegments = effectiveLabel.split(".");
                 let currentContext = cur_target_container;
@@ -2743,11 +2743,11 @@
                   }
                   currentContext = segNode;
                 }
-                targetParent = currentContext;
+                explicitParent = currentContext;
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
-              // 2. Measure indentation depth combining string whitespace & cell format indent
+              // Extract visual and native OpenXML indentations
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const normalizedSpaceCount = rawPrefixMatch
@@ -2755,8 +2755,7 @@
                 .replace(/\u00A0/g, " ")
                 .length + (cellLevelStyleIndent * 3);
 
-              const parentCandidate = nodeStack[nodeStack.length - 1];
-              if (parentCandidate && parentCandidate.label === "Actions" && effectiveLabel.includes(".")) {
+              if (activeObjectAnchor && activeObjectAnchor.label === "Actions" && effectiveLabel.includes(".")) {
                 effectiveLabel = effectiveLabel.split(".")[1];
               }
 
@@ -2765,43 +2764,33 @@
               attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
 
-              if (targetParent !== cur_target_container) {
-                // Attached via dot notation: attach directly under resolved parent
-                targetParent.children.push(newNode);
-                nodeStack = [cur_target_container, targetParent, newNode];
-                levelsStack = [0, 1, normalizedSpaceCount || 2];
+              if (explicitParent) {
+                explicitParent.children.push(newNode);
+                activeObjectAnchor = explicitParent;
+                activeSubAnchor = newNode;
               } else if (normalizedSpaceCount === 0) {
-                // Root property under current resource/table container
-                nodeStack = [cur_target_container, newNode];
-                levelsStack = [0, 0];
+                // True Level 0 property under the current container (e.g. MemoryLocation, MemoryMedia)
                 cur_target_container.children.push(newNode);
+                activeObjectAnchor = newNode;
+                activeSubAnchor = null;
               } else {
-                // Flexible stack traversal for indented children and siblings
-                const currentTopIndent = levelsStack[levelsStack.length - 1];
+                // Any indented property belongs inside the active object anchor
+                if (!activeObjectAnchor) {
+                  activeObjectAnchor = cur_target_container;
+                }
 
-                if (normalizedSpaceCount > currentTopIndent) {
-                  const parentNode = nodeStack[nodeStack.length - 1];
-                  parentNode.children.push(newNode);
-                  nodeStack.push(newNode);
-                  levelsStack.push(normalizedSpaceCount);
-                } else if (Math.abs(normalizedSpaceCount - currentTopIndent) <= 1) {
-                  // Sibling tolerance (within 1 space variance)
-                  nodeStack.pop();
-                  levelsStack.pop();
-                  const parentNode = nodeStack[nodeStack.length - 1];
-                  parentNode.children.push(newNode);
-                  nodeStack.push(newNode);
-                  levelsStack.push(normalizedSpaceCount);
-                } else {
-                  // Dedent back to appropriate ancestor
-                  while (levelsStack.length > 1 && levelsStack[levelsStack.length - 1] > normalizedSpaceCount) {
-                    nodeStack.pop();
-                    levelsStack.pop();
+                if (normalizedSpaceCount >= 6) {
+                  // Sub-sub property level
+                  if (activeSubAnchor) {
+                    activeSubAnchor.children.push(newNode);
+                  } else {
+                    activeObjectAnchor.children.push(newNode);
+                    activeSubAnchor = newNode;
                   }
-                  const parentNode = nodeStack[nodeStack.length - 1];
-                  parentNode.children.push(newNode);
-                  nodeStack.push(newNode);
-                  levelsStack.push(normalizedSpaceCount);
+                } else {
+                  // Direct child of the object container (e.g. Channel, MemoryController, Slot, Socket under MemoryLocation)
+                  activeObjectAnchor.children.push(newNode);
+                  activeSubAnchor = newNode;
                 }
               }
 
@@ -3356,6 +3345,8 @@
       const file = getActiveFile();
       if (!file) return;
       setExpandedRecursive(file.treeData, false);
+      const resContainer = file.treeData.find(n => n.label === "Resources");
+      if (resContainer) resContainer.expanded = true;
       refreshVirtualTree();
     }
 
