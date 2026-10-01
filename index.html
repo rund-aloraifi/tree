@@ -1983,7 +1983,14 @@
               sharedStrings = parseSharedStringsXml(ssXml);
             }
 
-            file.treeData = parseSheetXmlToTreeData(xmlContent, sheetName, sharedStrings);
+            let styleIndents = [];
+            const stylesFile = file.zip.file("xl/styles.xml");
+            if (stylesFile) {
+              const stylesXml = await stylesFile.async("string");
+              styleIndents = parseStylesIndentMap(stylesXml);
+            }
+
+            file.treeData = parseSheetXmlToTreeData(xmlContent, sheetName, sharedStrings, styleIndents);
             setExpandedRecursive(file.treeData, false);
             updateProfileDropdowns();
             refreshView();
@@ -2067,6 +2074,28 @@
       }, 20);
     }
 
+    function parseStylesIndentMap(stylesXmlString) {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(stylesXmlString, "application/xml");
+        const cellXfs = doc.getElementsByTagName("cellXfs")[0];
+        if (!cellXfs) return [];
+        const xfNodes = cellXfs.getElementsByTagName("xf");
+        const indents = [];
+        for (let i = 0; i < xfNodes.length; i++) {
+          const alignment = xfNodes[i].getElementsByTagName("alignment")[0];
+          let indentVal = 0;
+          if (alignment && alignment.hasAttribute("indent")) {
+            indentVal = parseInt(alignment.getAttribute("indent"), 10) || 0;
+          }
+          indents[i] = indentVal;
+        }
+        return indents;
+      } catch (err) {
+        return [];
+      }
+    }
+
     async function parseAndOpenExcelBuffer(buffer, fileName, preferredSheetName = null) {
       const zip = await JSZip.loadAsync(buffer);
       const workbookXml = await zip.file("xl/workbook.xml").async("string");
@@ -2111,7 +2140,14 @@
         sharedStrings = parseSharedStringsXml(ssXml);
       }
 
-      const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
+      let styleIndents = [];
+      const stylesFile = zip.file("xl/styles.xml");
+      if (stylesFile) {
+        const stylesXml = await stylesFile.async("string");
+        styleIndents = parseStylesIndentMap(stylesXml);
+      }
+
+      const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings, styleIndents);
       setExpandedRecursive(convertedTree, false);
       createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
 
@@ -2186,7 +2222,7 @@
       return index - 1;
     }
 
-    function parseSheetXmlToTreeData(sheetXmlString, sheetName, sharedStrings = []) {
+    function parseSheetXmlToTreeData(sheetXmlString, sheetName, sharedStrings = [], styleIndents = []) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(sheetXmlString, "application/xml");
       const rowElements = doc.getElementsByTagName("row");
@@ -2198,6 +2234,7 @@
         const cellElements = rowEl.getElementsByTagName("c");
         const rowValues = [];
         const cellRefMap = [];
+        const cellIndents = [];
 
         for (let c = 0; c < cellElements.length; c++) {
           const cellEl = cellElements[c];
@@ -2205,13 +2242,14 @@
           const colLetters = cellRef.replace(/[0-9]/g, '');
           const colIdx = colLettersToIndex(colLetters);
           const cellType = cellEl.getAttribute("t");
+          const styleIdx = parseInt(cellEl.getAttribute("s") || "-1", 10);
 
           let val = "";
           const vEl = cellEl.getElementsByTagName("v")[0];
           const isEl = cellEl.getElementsByTagName("is")[0];
 
           if (cellType === "s" && vEl) {
-            const ssIndex = parseInt(vEl.textContent);
+            const ssIndex = parseInt(vEl.textContent, 10);
             val = sharedStrings[ssIndex] || "";
           } else if (cellType === "inlineStr" && isEl) {
             const tElements = isEl.getElementsByTagName("t");
@@ -2228,11 +2266,13 @@
 
           rowValues[colIdx] = val;
           cellRefMap[colIdx] = cellRef;
+          cellIndents[colIdx] = (styleIdx >= 0 && styleIndents[styleIdx]) ? styleIndents[styleIdx] : 0;
         }
 
         rawRows[rIndex] = {
           values: rowValues,
           cellRefs: cellRefMap,
+          indents: cellIndents,
           xmlRow: rIndex + 1
         };
       }
@@ -2686,40 +2726,66 @@
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
             } else if (pColATrim && !pColATrim.startsWith("Profile")) {
-              // --- UNIVERSAL DYNAMIC INDENTATION ALGORITHM ---
+              // --- UNIVERSAL INDENTATION + DOT-NOTATION RESOLUTION ---
+              let targetParent = cur_target_container;
+              let effectiveLabel = pColATrim;
+
+              // 1. Resolve explicit dot notation (e.g. MemoryLocation.Channel)
+              if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
+                const dotSegments = effectiveLabel.split(".");
+                let currentContext = cur_target_container;
+                for (let d = 0; d < dotSegments.length - 1; d++) {
+                  const seg = dotSegments[d].trim();
+                  let segNode = currentContext.children.find(c => c.label.toLowerCase() === seg.toLowerCase());
+                  if (!segNode) {
+                    segNode = createNode(seg, null, false, getCellMeta(pRowObj, 0), rowVersions);
+                    currentContext.children.push(segNode);
+                  }
+                  currentContext = segNode;
+                }
+                targetParent = currentContext;
+                effectiveLabel = dotSegments[dotSegments.length - 1].trim();
+              }
+
+              // 2. Measure indentation depth combining string whitespace & cell format indent
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
+              const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const normalizedSpaceCount = rawPrefixMatch
                 .replace(/\t/g, "   ")
                 .replace(/\u00A0/g, " ")
-                .length;
+                .length + (cellLevelStyleIndent * 3);
 
-              let propName = pColATrim;
               const parentCandidate = nodeStack[nodeStack.length - 1];
-              if (parentCandidate && parentCandidate.label === "Actions" && propName.includes(".")) {
-                propName = propName.split(".")[1];
+              if (parentCandidate && parentCandidate.label === "Actions" && effectiveLabel.includes(".")) {
+                effectiveLabel = effectiveLabel.split(".")[1];
               }
 
-              const newNode = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              const newNode = createNode(effectiveLabel, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColBTrim) newNode.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
 
-              if (normalizedSpaceCount === 0) {
-                // Root property: reset stack to level 0
+              if (targetParent !== cur_target_container) {
+                // Attached via dot notation: attach directly under resolved parent
+                targetParent.children.push(newNode);
+                nodeStack = [cur_target_container, targetParent, newNode];
+                levelsStack = [0, 1, normalizedSpaceCount || 2];
+              } else if (normalizedSpaceCount === 0) {
+                // Root property under current resource/table container
                 nodeStack = [cur_target_container, newNode];
                 levelsStack = [0, 0];
                 cur_target_container.children.push(newNode);
               } else {
+                // Flexible stack traversal for indented children and siblings
                 const currentTopIndent = levelsStack[levelsStack.length - 1];
 
                 if (normalizedSpaceCount > currentTopIndent) {
-                  // Deeper child level: parent is top of stack
                   const parentNode = nodeStack[nodeStack.length - 1];
                   parentNode.children.push(newNode);
                   nodeStack.push(newNode);
                   levelsStack.push(normalizedSpaceCount);
-                } else if (normalizedSpaceCount === currentTopIndent) {
-                  // Sibling at current depth: replace current top of stack
+                } else if (Math.abs(normalizedSpaceCount - currentTopIndent) <= 1) {
+                  // Sibling tolerance (within 1 space variance)
                   nodeStack.pop();
                   levelsStack.pop();
                   const parentNode = nodeStack[nodeStack.length - 1];
@@ -2727,8 +2793,8 @@
                   nodeStack.push(newNode);
                   levelsStack.push(normalizedSpaceCount);
                 } else {
-                  // Step back / Dedent: pop until we find a parent with strictly fewer leading spaces
-                  while (levelsStack.length > 1 && levelsStack[levelsStack.length - 1] >= normalizedSpaceCount) {
+                  // Dedent back to appropriate ancestor
+                  while (levelsStack.length > 1 && levelsStack[levelsStack.length - 1] > normalizedSpaceCount) {
                     nodeStack.pop();
                     levelsStack.pop();
                   }
