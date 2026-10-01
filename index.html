@@ -2536,7 +2536,7 @@
           let rIndex = i + 1;
           let cur_target_container = resourceRoot; 
 
-          // Object-Context Anchored Tree Hierarchy Architecture
+          // Python-Equivalent Object Context Anchor Architecture
           let activeObjectAnchor = null;
           let activeSubAnchor = null;
 
@@ -2726,7 +2726,7 @@
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
             } else if (pColATrim && !pColATrim.startsWith("Profile")) {
-              // --- OBJECT-CONTEXT ANCHORED PROPERTY PARSER ---
+              // --- OBJECT-CONTEXT ANCHORED PROPERTY PARSER (Universal Python Logic) ---
               let explicitParent = null;
               let effectiveLabel = pColATrim;
 
@@ -2747,7 +2747,7 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
-              // Extract visual and native OpenXML indentations
+              // Extract visual and OpenXML cell-format indents
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const normalizedSpaceCount = rawPrefixMatch
@@ -2774,13 +2774,13 @@
                 activeObjectAnchor = newNode;
                 activeSubAnchor = null;
               } else {
-                // Any indented property belongs inside the active object anchor
+                // Indented properties strictly anchor to the active object container
                 if (!activeObjectAnchor) {
                   activeObjectAnchor = cur_target_container;
                 }
 
                 if (normalizedSpaceCount >= 6) {
-                  // Sub-sub property level
+                  // Sub-sub property level (depth >= 2)
                   if (activeSubAnchor) {
                     activeSubAnchor.children.push(newNode);
                   } else {
@@ -2788,7 +2788,7 @@
                     activeSubAnchor = newNode;
                   }
                 } else {
-                  // Direct child of the object container (e.g. Channel, MemoryController, Slot, Socket under MemoryLocation)
+                  // Parallel siblings under the active object container (Channel, MemoryController, Slot, Socket under MemoryLocation)
                   activeObjectAnchor.children.push(newNode);
                   activeSubAnchor = newNode;
                 }
