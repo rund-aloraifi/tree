@@ -700,7 +700,7 @@
       width: 110px;
     }
 
-    .search-stat {
+    .code-search-box .search-stat {
       font-size: 0.72rem;
       color: var(--text-muted);
       white-space: nowrap;
@@ -1983,14 +1983,7 @@
               sharedStrings = parseSharedStringsXml(ssXml);
             }
 
-            let styleIndents = [];
-            const stylesFile = file.zip.file("xl/styles.xml");
-            if (stylesFile) {
-              const stylesXml = await stylesFile.async("string");
-              styleIndents = parseStylesIndentMap(stylesXml);
-            }
-
-            file.treeData = parseSheetXmlToTreeData(xmlContent, sheetName, sharedStrings, styleIndents);
+            file.treeData = parseSheetXmlToTreeData(xmlContent, sheetName, sharedStrings);
             setExpandedRecursive(file.treeData, false);
             updateProfileDropdowns();
             refreshView();
@@ -2074,28 +2067,6 @@
       }, 20);
     }
 
-    function parseStylesIndentMap(stylesXmlString) {
-      try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(stylesXmlString, "application/xml");
-        const cellXfs = doc.getElementsByTagName("cellXfs")[0];
-        if (!cellXfs) return [];
-        const xfNodes = cellXfs.getElementsByTagName("xf");
-        const indents = [];
-        for (let i = 0; i < xfNodes.length; i++) {
-          const alignment = xfNodes[i].getElementsByTagName("alignment")[0];
-          let indentVal = 0;
-          if (alignment && alignment.hasAttribute("indent")) {
-            indentVal = parseInt(alignment.getAttribute("indent"), 10) || 0;
-          }
-          indents[i] = indentVal;
-        }
-        return indents;
-      } catch (err) {
-        return [];
-      }
-    }
-
     async function parseAndOpenExcelBuffer(buffer, fileName, preferredSheetName = null) {
       const zip = await JSZip.loadAsync(buffer);
       const workbookXml = await zip.file("xl/workbook.xml").async("string");
@@ -2140,14 +2111,7 @@
         sharedStrings = parseSharedStringsXml(ssXml);
       }
 
-      let styleIndents = [];
-      const stylesFile = zip.file("xl/styles.xml");
-      if (stylesFile) {
-        const stylesXml = await stylesFile.async("string");
-        styleIndents = parseStylesIndentMap(stylesXml);
-      }
-
-      const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings, styleIndents);
+      const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
       setExpandedRecursive(convertedTree, false);
       createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
 
@@ -2222,7 +2186,7 @@
       return index - 1;
     }
 
-    function parseSheetXmlToTreeData(sheetXmlString, sheetName, sharedStrings = [], styleIndents = []) {
+    function parseSheetXmlToTreeData(sheetXmlString, sheetName, sharedStrings = []) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(sheetXmlString, "application/xml");
       const rowElements = doc.getElementsByTagName("row");
@@ -2234,7 +2198,6 @@
         const cellElements = rowEl.getElementsByTagName("c");
         const rowValues = [];
         const cellRefMap = [];
-        const cellIndents = [];
 
         for (let c = 0; c < cellElements.length; c++) {
           const cellEl = cellElements[c];
@@ -2242,14 +2205,13 @@
           const colLetters = cellRef.replace(/[0-9]/g, '');
           const colIdx = colLettersToIndex(colLetters);
           const cellType = cellEl.getAttribute("t");
-          const styleIdx = parseInt(cellEl.getAttribute("s") || "-1", 10);
 
           let val = "";
           const vEl = cellEl.getElementsByTagName("v")[0];
           const isEl = cellEl.getElementsByTagName("is")[0];
 
           if (cellType === "s" && vEl) {
-            const ssIndex = parseInt(vEl.textContent, 10);
+            const ssIndex = parseInt(vEl.textContent);
             val = sharedStrings[ssIndex] || "";
           } else if (cellType === "inlineStr" && isEl) {
             const tElements = isEl.getElementsByTagName("t");
@@ -2266,13 +2228,11 @@
 
           rowValues[colIdx] = val;
           cellRefMap[colIdx] = cellRef;
-          cellIndents[colIdx] = (styleIdx >= 0 && styleIndents[styleIdx]) ? styleIndents[styleIdx] : 0;
         }
 
         rawRows[rIndex] = {
           values: rowValues,
           cellRefs: cellRefMap,
-          indents: cellIndents,
           xmlRow: rIndex + 1
         };
       }
@@ -2488,7 +2448,7 @@
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        // Section Grouping Folders (e.g. 1.1.2 Event)
+        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event)
         const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
         if (folderMatch) {
           const folderName = folderMatch[2].trim();
@@ -2506,6 +2466,7 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
+          // Strips numeric/placeholder prefixes like 1.1.2.1 Event -> Event
           const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
@@ -2535,18 +2496,11 @@
 
           let rIndex = i + 1;
           let cur_target_container = resourceRoot; 
-
-          // Python-Equivalent Object Context Anchor Architecture
-          let activeObjectAnchor = null;
-          let activeSubAnchor = null;
-
+          let cur_prop_node = null;
+          let cur_sub_prop_node = null;
+          let cur_sub_sub_prop_node = null;
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
-
-          function resetPropertyContext() {
-            activeObjectAnchor = null;
-            activeSubAnchor = null;
-          }
 
           while (rIndex < rawRows.length) {
             const pRowObj = rawRows[rIndex];
@@ -2614,12 +2568,11 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = activeSubAnchor || activeObjectAnchor;
-                if (lastNode && lastNode !== cur_target_container) {
-                  currentEnumContainer = lastNode.children.find(c => c.label === "Values");
+                if (cur_prop_node) {
+                  currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
                     currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    lastNode.children.push(currentEnumContainer);
+                    cur_prop_node.children.push(currentEnumContainer);
                   }
                 }
               } else {
@@ -2631,6 +2584,7 @@
                   subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
                 }
 
+                // Check if this table represents an explicit variant (e.g. IPv4 vs IPv6)
                 const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
                                        /\(ipv[46]\)/i.test(subTableName) ||
                                        (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
@@ -2643,10 +2597,13 @@
                   }
                   cur_target_container = subGroup;
                 } else {
+                  // Standard main resource table: put properties directly under the resource root!
                   cur_target_container = resourceRoot;
                 }
 
-                resetPropertyContext();
+                cur_prop_node = null;
+                cur_sub_prop_node = null;
+                cur_sub_sub_prop_node = null;
               }
               rIndex++;
               continue;
@@ -2664,7 +2621,9 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              resetPropertyContext();
+              cur_prop_node = null;
+              cur_sub_prop_node = null;
+              cur_sub_sub_prop_node = null;
               rIndex++;
               continue;
             }
@@ -2672,12 +2631,11 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = activeSubAnchor || activeObjectAnchor;
-              if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
-                currentEnumContainer = lastNode.children.find(c => c.label === "Values");
+              if (cur_prop_node && !currentEnumContainer) {
+                currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
                   currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                  lastNode.children.push(currentEnumContainer);
+                  cur_prop_node.children.push(currentEnumContainer);
                 }
               }
               rIndex++;
@@ -2707,6 +2665,7 @@
               continue;
             }
 
+            // Standard property mapping
             const reqs = [pLine[2], pLine[3], pLine[4], pLine[5], pLine[6], pLine[7]];
 
             if (pColA === "ResourceRequirement") {
@@ -2725,77 +2684,42 @@
                 }
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
-            } else if (pColATrim && !pColATrim.startsWith("Profile")) {
-              // --- OBJECT-CONTEXT ANCHORED PROPERTY PARSER (Universal Python Logic) ---
-              let explicitParent = null;
-              let effectiveLabel = pColATrim;
-
-              // Check for dot notation (e.g. MemoryLocation.Channel)
-              if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
-                const dotSegments = effectiveLabel.split(".");
-                let currentContext = cur_target_container;
-                for (let d = 0; d < dotSegments.length - 1; d++) {
-                  const seg = dotSegments[d].trim();
-                  let segNode = currentContext.children.find(c => c.label.toLowerCase() === seg.toLowerCase());
-                  if (!segNode) {
-                    segNode = createNode(seg, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    currentContext.children.push(segNode);
-                  }
-                  currentContext = segNode;
-                }
-                explicitParent = currentContext;
-                effectiveLabel = dotSegments[dotSegments.length - 1].trim();
+            } else if (pColA.startsWith("         ") && cur_sub_sub_prop_node) {
+              const propName = pColA.trim();
+              const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              if (pColBTrim) node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              attachProfileRequirements(node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(node, specialReqsRaw, pRowObj, rowVersions);
+              cur_sub_sub_prop_node.children.push(node);
+            } else if (pColA.startsWith("      ") && cur_sub_prop_node) {
+              const propName = pColA.trim();
+              cur_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              if (pColBTrim) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              cur_sub_prop_node.children.push(cur_sub_sub_prop_node);
+            } else if (pColA.startsWith("   ") && cur_prop_node) {
+              let propName = pColA.trim();
+              if (cur_prop_node.label === "Actions" && propName.includes(".")) {
+                propName = propName.split(".")[1];
               }
-
-              // Extract visual and OpenXML cell-format indents
-              const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
-              const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
-              const normalizedSpaceCount = rawPrefixMatch
-                .replace(/\t/g, "   ")
-                .replace(/\u00A0/g, " ")
-                .length + (cellLevelStyleIndent * 3);
-
-              if (activeObjectAnchor && activeObjectAnchor.label === "Actions" && effectiveLabel.includes(".")) {
-                effectiveLabel = effectiveLabel.split(".")[1];
-              }
-
-              const newNode = createNode(effectiveLabel, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColBTrim) newNode.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
-
-              if (explicitParent) {
-                explicitParent.children.push(newNode);
-                activeObjectAnchor = explicitParent;
-                activeSubAnchor = newNode;
-              } else if (normalizedSpaceCount === 0) {
-                // True Level 0 property under the current container (e.g. MemoryLocation, MemoryMedia)
-                cur_target_container.children.push(newNode);
-                activeObjectAnchor = newNode;
-                activeSubAnchor = null;
-              } else {
-                // Indented properties strictly anchor to the active object container
-                if (!activeObjectAnchor) {
-                  activeObjectAnchor = cur_target_container;
-                }
-
-                if (normalizedSpaceCount >= 6) {
-                  // Sub-sub property level (depth >= 2)
-                  if (activeSubAnchor) {
-                    activeSubAnchor.children.push(newNode);
-                  } else {
-                    activeObjectAnchor.children.push(newNode);
-                    activeSubAnchor = newNode;
-                  }
-                } else {
-                  // Parallel siblings under the active object container (Channel, MemoryController, Slot, Socket under MemoryLocation)
-                  activeObjectAnchor.children.push(newNode);
-                  activeSubAnchor = newNode;
-                }
-              }
-
+              cur_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              cur_sub_sub_prop_node = null;
+              if (pColBTrim) cur_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              cur_prop_node.children.push(cur_sub_prop_node);
+            } else if (pColATrim && !pColATrim.startsWith("Profile") && pColATrim !== "ResourceRequirement" && pColATrim !== "Resource MinVersion") {
+              const propName = pColATrim;
+              cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              cur_sub_prop_node = null;
+              cur_sub_sub_prop_node = null;
               isParsingEnumTable = false;
               currentEnumContainer = null;
+              if (pColBTrim) cur_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              cur_target_container.children.push(cur_prop_node);
             }
 
             rIndex++;
@@ -3345,8 +3269,6 @@
       const file = getActiveFile();
       if (!file) return;
       setExpandedRecursive(file.treeData, false);
-      const resContainer = file.treeData.find(n => n.label === "Resources");
-      if (resContainer) resContainer.expanded = true;
       refreshVirtualTree();
     }
 
