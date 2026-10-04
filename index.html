@@ -2536,16 +2536,14 @@
           let rIndex = i + 1;
           let cur_target_container = resourceRoot; 
 
-          // Python-Equivalent Object Context Anchor Architecture
-          let activeObjectAnchor = null;
-          let activeSubAnchor = null;
+          // --- ROBUST TRUE HIERARCHY STACK (Python Engine Mimic) ---
+          let hierarchyStack = [{ node: cur_target_container, indent: -1 }];
 
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
 
-          function resetPropertyContext() {
-            activeObjectAnchor = null;
-            activeSubAnchor = null;
+          function resetHierarchyStack() {
+            hierarchyStack = [{ node: cur_target_container, indent: -1 }];
           }
 
           while (rIndex < rawRows.length) {
@@ -2614,7 +2612,7 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = activeSubAnchor || activeObjectAnchor;
+                const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
                 if (lastNode && lastNode !== cur_target_container) {
                   currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
@@ -2646,7 +2644,7 @@
                   cur_target_container = resourceRoot;
                 }
 
-                resetPropertyContext();
+                resetHierarchyStack();
               }
               rIndex++;
               continue;
@@ -2664,7 +2662,7 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              resetPropertyContext();
+              resetHierarchyStack();
               rIndex++;
               continue;
             }
@@ -2672,7 +2670,7 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = activeSubAnchor || activeObjectAnchor;
+              const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
               if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
                 currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
@@ -2726,11 +2724,14 @@
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
             } else if (pColATrim && !pColATrim.startsWith("Profile")) {
-              // --- OBJECT-CONTEXT ANCHORED PROPERTY PARSER (Universal Python Logic) ---
-              let explicitParent = null;
+              
+              // =========================================================================
+              // الخوارزمية الجذرية الدقيقة (Stack Based Sibling & Child Engine)
+              // =========================================================================
               let effectiveLabel = pColATrim;
+              let explicitParent = null;
 
-              // Check for dot notation (e.g. MemoryLocation.Channel)
+              // دعم الـ Dot-Notation لو وجد
               if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
                 const dotSegments = effectiveLabel.split(".");
                 let currentContext = cur_target_container;
@@ -2747,15 +2748,18 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
-              // Extract visual and OpenXML cell-format indents
+              // حساب المسافة البادئة ومستوى التنسيق الدقيق
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
-              const normalizedSpaceCount = rawPrefixMatch
+              const rawSpaceLength = rawPrefixMatch
                 .replace(/\t/g, "   ")
                 .replace(/\u00A0/g, " ")
-                .length + (cellLevelStyleIndent * 3);
+                .length;
 
-              if (activeObjectAnchor && activeObjectAnchor.label === "Actions" && effectiveLabel.includes(".")) {
+              const totalIndent = rawSpaceLength + (cellLevelStyleIndent * 3);
+
+              const parentCandidate = hierarchyStack[hierarchyStack.length - 1].node;
+              if (parentCandidate && parentCandidate.label === "Actions" && effectiveLabel.includes(".")) {
                 effectiveLabel = effectiveLabel.split(".")[1];
               }
 
@@ -2766,32 +2770,30 @@
 
               if (explicitParent) {
                 explicitParent.children.push(newNode);
-                activeObjectAnchor = explicitParent;
-                activeSubAnchor = newNode;
-              } else if (normalizedSpaceCount === 0) {
-                // True Level 0 property under the current container (e.g. MemoryLocation, MemoryMedia)
+                hierarchyStack = [
+                  { node: cur_target_container, indent: -1 },
+                  { node: explicitParent, indent: 0 },
+                  { node: newNode, indent: totalIndent || 3 }
+                ];
+              } else if (totalIndent === 0) {
+                // خاصية رئيسية Level-0 صريحة (مثل MemoryLocation أو MemoryMedia)
                 cur_target_container.children.push(newNode);
-                activeObjectAnchor = newNode;
-                activeSubAnchor = null;
+                hierarchyStack = [
+                  { node: cur_target_container, indent: -1 },
+                  { node: newNode, indent: 0 }
+                ];
               } else {
-                // Indented properties strictly anchor to the active object container
-                if (!activeObjectAnchor) {
-                  activeObjectAnchor = cur_target_container;
+                // خاصية فرعية: تفريغ المكدس حتى نجد الأب الذي مسافته أصغر صراحة
+                // هذا يضمن أن الحقول ذات المسافة المتساوية تصبح إخوة (Siblings) ولا تدخل داخل بعضها!
+                while (hierarchyStack.length > 1 && hierarchyStack[hierarchyStack.length - 1].indent >= totalIndent) {
+                  hierarchyStack.pop();
                 }
 
-                if (normalizedSpaceCount >= 6) {
-                  // Sub-sub property level (depth >= 2)
-                  if (activeSubAnchor) {
-                    activeSubAnchor.children.push(newNode);
-                  } else {
-                    activeObjectAnchor.children.push(newNode);
-                    activeSubAnchor = newNode;
-                  }
-                } else {
-                  // Parallel siblings under the active object container (Channel, MemoryController, Slot, Socket under MemoryLocation)
-                  activeObjectAnchor.children.push(newNode);
-                  activeSubAnchor = newNode;
-                }
+                const currentParent = hierarchyStack[hierarchyStack.length - 1].node;
+                currentParent.children.push(newNode);
+
+                // إدراج الخاصية الحالية في المكدس لتكون أباً محتملاً لما بعدها فقط لو كان أعمق منها
+                hierarchyStack.push({ node: newNode, indent: totalIndent });
               }
 
               isParsingEnumTable = false;
