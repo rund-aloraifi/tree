@@ -2537,16 +2537,14 @@
           let cur_target_container = resourceRoot; 
 
           // =========================================================================
-          // Python-Strict Hierarchy Engine with Container Locking
+          // Python-Strict Hierarchy Stack Engine
           // =========================================================================
-          let activeContainerNode = null;
-          let activeLevel1Node = null;
+          let hierarchyStack = [{ node: cur_target_container, indent: -1 }];
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
 
-          function resetContainerEngine() {
-            activeContainerNode = null;
-            activeLevel1Node = null;
+          function resetHierarchyStack() {
+            hierarchyStack = [{ node: cur_target_container, indent: -1 }];
           }
 
           while (rIndex < rawRows.length) {
@@ -2615,7 +2613,7 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = activeLevel1Node || activeContainerNode;
+                const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
                 if (lastNode && lastNode !== cur_target_container) {
                   currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
@@ -2647,7 +2645,7 @@
                   cur_target_container = resourceRoot;
                 }
 
-                resetContainerEngine();
+                resetHierarchyStack();
               }
               rIndex++;
               continue;
@@ -2665,7 +2663,7 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              resetContainerEngine();
+              resetHierarchyStack();
               rIndex++;
               continue;
             }
@@ -2673,7 +2671,7 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = activeLevel1Node || activeContainerNode;
+              const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
               if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
                 currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
@@ -2727,10 +2725,22 @@
               });
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
             } else if (pColATrim && !pColATrim.startsWith("Profile")) {
-              
+
               // =========================================================================
-              // الخوارزمية الصارمة لحل مشكلة MemoryLocation وجميع الحاويات المشابهة
+              // CONDITIONAL DEBUGGER (بناءً على اقتراح قاسم)
               // =========================================================================
+              const debugTargetProperties = ["MemoryLocation", "Channel", "MemoryController", "Slot", "Socket", "MemoryMedia"];
+              if (debugTargetProperties.includes(pColATrim)) {
+                console.group(`%c[DEBUG ROW ${rIndex + 1}] Property: "${pColATrim}"`, "background: #2563eb; color: #fff; padding: 2px 6px; border-radius: 3px; font-weight: bold;");
+                console.log("Raw Cell String:", JSON.stringify(pColA));
+                console.log("Leading Char Codes:", Array.from(pColA).slice(0, 10).map(c => `${c} (${c.charCodeAt(0)})`));
+                console.log("Style Indent (from styles.xml):", (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0);
+                console.log("Current Stack Before Push:", hierarchyStack.map(s => `${s.node.label} [indent: ${s.indent}]`));
+                console.groupEnd();
+                // لتفعيل التوقف التلقائي في DevTools احذف التعليق عن السطر التالي:
+                // debugger;
+              }
+
               let effectiveLabel = pColATrim;
               let explicitParent = null;
 
@@ -2750,7 +2760,6 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
-              // قياس المسافات بدقة
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const rawSpaceLength = rawPrefixMatch
@@ -2760,7 +2769,8 @@
 
               const totalIndent = rawSpaceLength + (cellLevelStyleIndent * 3);
 
-              if (activeContainerNode && activeContainerNode.label === "Actions" && effectiveLabel.includes(".")) {
+              const parentCandidate = hierarchyStack[hierarchyStack.length - 1].node;
+              if (parentCandidate && parentCandidate.label === "Actions" && effectiveLabel.includes(".")) {
                 effectiveLabel = effectiveLabel.split(".")[1];
               }
 
@@ -2771,27 +2781,26 @@
 
               if (explicitParent) {
                 explicitParent.children.push(newNode);
-                activeContainerNode = explicitParent;
-                activeLevel1Node = newNode;
+                hierarchyStack = [
+                  { node: cur_target_container, indent: -1 },
+                  { node: explicitParent, indent: 0 },
+                  { node: newNode, indent: totalIndent || 3 }
+                ];
               } else if (totalIndent === 0) {
-                // خاصية رئيسية جديدة تماماً في المورد (تغلق الحاوية السابقة وتفتح حاوية جديدة)
                 cur_target_container.children.push(newNode);
-                activeContainerNode = newNode;
-                activeLevel1Node = null;
+                hierarchyStack = [
+                  { node: cur_target_container, indent: -1 },
+                  { node: newNode, indent: 0 }
+                ];
               } else {
-                // أي خاصية بها إزاحة تنتمي مباشرة إلى الحاوية المفتوحة حالياً (مثل MemoryLocation)
-                if (!activeContainerNode) {
-                  activeContainerNode = cur_target_container;
+                while (hierarchyStack.length > 1 && hierarchyStack[hierarchyStack.length - 1].indent >= totalIndent) {
+                  hierarchyStack.pop();
                 }
 
-                if (totalIndent >= 6 && activeLevel1Node) {
-                  // مستوى فرعي ثانٍ (Sub-Sub Property)
-                  activeLevel1Node.children.push(newNode);
-                } else {
-                  // مستوى فرعي أول: يضاف كـ Sibling موازٍ مباشرة تحت الكائن الأب
-                  activeContainerNode.children.push(newNode);
-                  activeLevel1Node = newNode;
-                }
+                const currentParent = hierarchyStack[hierarchyStack.length - 1].node;
+                currentParent.children.push(newNode);
+
+                hierarchyStack.push({ node: newNode, indent: totalIndent });
               }
 
               isParsingEnumTable = false;
@@ -3033,7 +3042,7 @@
             let cellEl = null;
 
             const cElements = xmlDoc.getElementsByTagName("c");
-            for (let i = 0; i < cellElements.length; i++) {
+            for (let i = 0; i < cElements.length; i++) {
               if (cElements[i].getAttribute("r") === cellRef) {
                 cellEl = cElements[i];
                 break;
