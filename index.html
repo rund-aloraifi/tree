@@ -2536,11 +2536,19 @@
           let cur_target_container = resourceRoot; 
 
           // =========================================================================
-          // Python-Exact Logic: تثبيت الحاوية المركبة لحل مشكلة الإخوة فوراً
+          // UNIVERSAL INDENT QUANTIZATION & ANCESTOR STACK (Python Engine)
           // =========================================================================
-          let activeCompositeAnchor = null;
+          // ancestors[0] = Root table container (e.g. Memory Resource)
+          // ancestors[1] = Level 0 Property (e.g. MemoryLocation)
+          // ancestors[2] = Level 1 Property (e.g. Channel, MemoryController, Slot)
+          let ancestors = [cur_target_container];
+
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
+
+          function resetAncestors() {
+            ancestors = [cur_target_container];
+          }
 
           while (rIndex < rawRows.length) {
             const pRowObj = rawRows[rIndex];
@@ -2550,9 +2558,10 @@
             }
 
             const pLine = pRowObj.values || [];
-            const pColA = String(pLine[0] || "");
-            const pColB = String(pLine[1] || "");
-            const pColC = String(pLine[2] || "");
+            // تنظيف النص بالكامل من أي محارف تحكم مخفية قد تكسر المقارنة
+            const pColA = String(pLine[0] || "").replace(/[\r\n\x00-\x1F\x7F]/g, '');
+            const pColB = String(pLine[1] || "").replace(/[\r\n\x00-\x1F\x7F]/g, '');
+            const pColC = String(pLine[2] || "").trim();
             const specialReqsRaw = String(pLine[12] || "").trim();
             const rowVersions = parseVersionFlags(pLine);
 
@@ -2608,7 +2617,7 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = activeCompositeAnchor || cur_target_container;
+                const lastNode = ancestors.length > 1 ? ancestors[ancestors.length - 1] : null;
                 if (lastNode && lastNode !== cur_target_container) {
                   currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
@@ -2640,7 +2649,7 @@
                   cur_target_container = resourceRoot;
                 }
 
-                activeCompositeAnchor = null;
+                resetAncestors();
               }
               rIndex++;
               continue;
@@ -2658,7 +2667,7 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              activeCompositeAnchor = null;
+              resetAncestors();
               rIndex++;
               continue;
             }
@@ -2666,7 +2675,7 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = activeCompositeAnchor || cur_target_container;
+              const lastNode = ancestors.length > 1 ? ancestors[ancestors.length - 1] : null;
               if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
                 currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
@@ -2721,12 +2730,10 @@
               if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
             } else if (pColATrim && !pColATrim.startsWith("Profile")) {
 
-              // =========================================================================
-              // الحل الحاسم الجذري والنهائي لمطابقة كود بايثون
-              // =========================================================================
               let effectiveLabel = pColATrim;
               let explicitParent = null;
 
+              // دعم مسار Dot notation إذا كان مستخدماً في بعض الجداول
               if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
                 const dotSegments = effectiveLabel.split(".");
                 let currentContext = cur_target_container;
@@ -2743,40 +2750,52 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
+              // قياس المسافات بدقة تامة وتكميمها (Quantization)
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
-              const hasVisibleIndent = (rawPrefixMatch.length > 0) || (cellLevelStyleIndent > 0);
-              const labelLower = effectiveLabel.toLowerCase();
+              const rawSpaces = rawPrefixMatch
+                .replace(/\t/g, "   ")
+                .replace(/\u00A0/g, " ")
+                .length;
+
+              const totalSpaces = rawSpaces + (cellLevelStyleIndent * 3);
+
+              // تكميم العمق: 0 = رئيسي، 1 = فرعي أول (مثل Channel, Slot)، 2 = فرعي ثاني
+              let targetDepth = 0;
+              if (totalSpaces >= 6) {
+                targetDepth = 2;
+              } else if (totalSpaces >= 1) {
+                targetDepth = 1;
+              } else {
+                targetDepth = 0;
+              }
+
+              // فحص Actions
+              const parentCandidate = ancestors[ancestors.length - 1];
+              if (parentCandidate && parentCandidate.label === "Actions" && effectiveLabel.includes(".")) {
+                effectiveLabel = effectiveLabel.split(".")[1];
+              }
 
               const newNode = createNode(effectiveLabel, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColBTrim) newNode.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
 
-              // 1. إذا كان اسم الخاصية محدد بالـ dot-notation
               if (explicitParent) {
                 explicitParent.children.push(newNode);
-                activeCompositeAnchor = explicitParent;
-              }
-              // 2. إذا كانت الخاصية عضواً في كائن مركب نشط (مثل بنات MemoryLocation)
-              else if (activeCompositeAnchor && hasVisibleIndent) {
-                // أي خاصية مزاحة بعد MemoryLocation تضاف مباشرة كـ Sibling موازٍ تحته!
-                activeCompositeAnchor.children.push(newNode);
-              }
-              // 3. حالة خاصة للملفات التي لم تضع مسافة لـ MemoryController في الإكسل
-              else if (activeCompositeAnchor && (labelLower === "channel" || labelLower === "memorycontroller" || labelLower === "slot" || labelLower === "socket")) {
-                activeCompositeAnchor.children.push(newNode);
-              }
-              // 4. خاصية جذرية (Level 0) في الجدول
-              else {
-                cur_target_container.children.push(newNode);
-                
-                // إذا كانت الخاصية كائن مركب (مثل MemoryLocation)، نعتبرها الحاوية النشطة للبنات التي تليها!
-                if (labelLower === "memorylocation" || labelLower === "processorsummary" || labelLower === "memorysummary") {
-                  activeCompositeAnchor = newNode;
-                } else {
-                  activeCompositeAnchor = null;
-                }
+                ancestors = [cur_target_container, explicitParent, newNode];
+              } else {
+                // قاعدة الـ Stack الصارمة:
+                // العنصر ذو العمق targetDepth يجب أن يضاف حصراً إلى الأب ذي الفهرس targetDepth
+                // (مثال: Level 1 يضاف دائماً إلى ancestors[1] وهو MemoryLocation!)
+                const parentIdx = Math.min(targetDepth, ancestors.length - 1);
+                const assignedParent = ancestors[parentIdx];
+
+                assignedParent.children.push(newNode);
+
+                // حفظ العقدة الحالية في المكدس عند مستواها المناسب ومسح أي مستويات أعمق
+                ancestors[targetDepth + 1] = newNode;
+                ancestors.length = targetDepth + 2;
               }
 
               isParsingEnumTable = false;
