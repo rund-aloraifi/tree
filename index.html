@@ -2536,14 +2536,17 @@
           let rIndex = i + 1;
           let cur_target_container = resourceRoot; 
 
-          // --- ROBUST TRUE HIERARCHY STACK (Python Engine Mimic) ---
-          let hierarchyStack = [{ node: cur_target_container, indent: -1 }];
-
+          // =========================================================================
+          // Python-Strict Hierarchy Engine with Container Locking
+          // =========================================================================
+          let activeContainerNode = null;
+          let activeLevel1Node = null;
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
 
-          function resetHierarchyStack() {
-            hierarchyStack = [{ node: cur_target_container, indent: -1 }];
+          function resetContainerEngine() {
+            activeContainerNode = null;
+            activeLevel1Node = null;
           }
 
           while (rIndex < rawRows.length) {
@@ -2612,7 +2615,7 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
+                const lastNode = activeLevel1Node || activeContainerNode;
                 if (lastNode && lastNode !== cur_target_container) {
                   currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
@@ -2644,7 +2647,7 @@
                   cur_target_container = resourceRoot;
                 }
 
-                resetHierarchyStack();
+                resetContainerEngine();
               }
               rIndex++;
               continue;
@@ -2662,7 +2665,7 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              resetHierarchyStack();
+              resetContainerEngine();
               rIndex++;
               continue;
             }
@@ -2670,7 +2673,7 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
+              const lastNode = activeLevel1Node || activeContainerNode;
               if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
                 currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
@@ -2726,12 +2729,11 @@
             } else if (pColATrim && !pColATrim.startsWith("Profile")) {
               
               // =========================================================================
-              // الخوارزمية الجذرية الدقيقة (Stack Based Sibling & Child Engine)
+              // الخوارزمية الصارمة لحل مشكلة MemoryLocation وجميع الحاويات المشابهة
               // =========================================================================
               let effectiveLabel = pColATrim;
               let explicitParent = null;
 
-              // دعم الـ Dot-Notation لو وجد
               if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
                 const dotSegments = effectiveLabel.split(".");
                 let currentContext = cur_target_container;
@@ -2748,7 +2750,7 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
-              // حساب المسافة البادئة ومستوى التنسيق الدقيق
+              // قياس المسافات بدقة
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const rawSpaceLength = rawPrefixMatch
@@ -2758,8 +2760,7 @@
 
               const totalIndent = rawSpaceLength + (cellLevelStyleIndent * 3);
 
-              const parentCandidate = hierarchyStack[hierarchyStack.length - 1].node;
-              if (parentCandidate && parentCandidate.label === "Actions" && effectiveLabel.includes(".")) {
+              if (activeContainerNode && activeContainerNode.label === "Actions" && effectiveLabel.includes(".")) {
                 effectiveLabel = effectiveLabel.split(".")[1];
               }
 
@@ -2770,30 +2771,27 @@
 
               if (explicitParent) {
                 explicitParent.children.push(newNode);
-                hierarchyStack = [
-                  { node: cur_target_container, indent: -1 },
-                  { node: explicitParent, indent: 0 },
-                  { node: newNode, indent: totalIndent || 3 }
-                ];
+                activeContainerNode = explicitParent;
+                activeLevel1Node = newNode;
               } else if (totalIndent === 0) {
-                // خاصية رئيسية Level-0 صريحة (مثل MemoryLocation أو MemoryMedia)
+                // خاصية رئيسية جديدة تماماً في المورد (تغلق الحاوية السابقة وتفتح حاوية جديدة)
                 cur_target_container.children.push(newNode);
-                hierarchyStack = [
-                  { node: cur_target_container, indent: -1 },
-                  { node: newNode, indent: 0 }
-                ];
+                activeContainerNode = newNode;
+                activeLevel1Node = null;
               } else {
-                // خاصية فرعية: تفريغ المكدس حتى نجد الأب الذي مسافته أصغر صراحة
-                // هذا يضمن أن الحقول ذات المسافة المتساوية تصبح إخوة (Siblings) ولا تدخل داخل بعضها!
-                while (hierarchyStack.length > 1 && hierarchyStack[hierarchyStack.length - 1].indent >= totalIndent) {
-                  hierarchyStack.pop();
+                // أي خاصية بها إزاحة تنتمي مباشرة إلى الحاوية المفتوحة حالياً (مثل MemoryLocation)
+                if (!activeContainerNode) {
+                  activeContainerNode = cur_target_container;
                 }
 
-                const currentParent = hierarchyStack[hierarchyStack.length - 1].node;
-                currentParent.children.push(newNode);
-
-                // إدراج الخاصية الحالية في المكدس لتكون أباً محتملاً لما بعدها فقط لو كان أعمق منها
-                hierarchyStack.push({ node: newNode, indent: totalIndent });
+                if (totalIndent >= 6 && activeLevel1Node) {
+                  // مستوى فرعي ثانٍ (Sub-Sub Property)
+                  activeLevel1Node.children.push(newNode);
+                } else {
+                  // مستوى فرعي أول: يضاف كـ Sibling موازٍ مباشرة تحت الكائن الأب
+                  activeContainerNode.children.push(newNode);
+                  activeLevel1Node = newNode;
+                }
               }
 
               isParsingEnumTable = false;
@@ -2927,35 +2925,6 @@
         });
       }
 
-      function deduplicateChildNodes(node) {
-        if (!node.children || node.children.length <= 1) return;
-        const uniqueMap = new Map();
-        const cleanChildren = [];
-
-        node.children.forEach(child => {
-          const key = child.label.trim().toLowerCase();
-          if (uniqueMap.has(key)) {
-            const existing = uniqueMap.get(key);
-            if (child.children && child.children.length > 0) {
-              child.children.forEach(subChild => {
-                if (!existing.children.some(e => e.label.toLowerCase() === subChild.label.toLowerCase())) {
-                  existing.children.push(subChild);
-                }
-              });
-            }
-            if (existing.value === null && child.value !== null) {
-              existing.value = child.value;
-            }
-          } else {
-            uniqueMap.set(key, child);
-            cleanChildren.push(child);
-          }
-        });
-
-        node.children = cleanChildren;
-        node.children.forEach(c => deduplicateChildNodes(c));
-      }
-
       const finalTree = [];
       if (profileNameNode) finalTree.push(profileNameNode);
       if (profilePurposeNode) finalTree.push(profilePurposeNode);
@@ -2963,7 +2932,6 @@
       if (schemasContainerNode.children.length > 0) finalTree.push(schemasContainerNode);
 
       bubbleUpVersions(finalTree);
-      finalTree.forEach(rootNode => deduplicateChildNodes(rootNode));
 
       function cleanPhantomNodes(nodes) {
         return nodes.filter(node => {
@@ -3065,7 +3033,7 @@
             let cellEl = null;
 
             const cElements = xmlDoc.getElementsByTagName("c");
-            for (let i = 0; i < cElements.length; i++) {
+            for (let i = 0; i < cellElements.length; i++) {
               if (cElements[i].getAttribute("r") === cellRef) {
                 cellEl = cElements[i];
                 break;
