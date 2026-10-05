@@ -1075,9 +1075,6 @@
     const ROW_HEIGHT = 30;
     let virtualRowsList = [];
 
-    // Global debug store for complete row-by-row inspection
-    window.__OPAS_ROW_DEBUG_LOG = [];
-
     const AUXILIARY_COMPLEX_TYPES = [
       'ActionInfo', 'Event', 'IPAddress', 'IPStaticAddress', 
       'IPGatewayStaticAddress', 'Payload', 'Identifier', 
@@ -1533,8 +1530,6 @@
           }
         }
 
-        const debugTitle = `Node: ${node.label} | Depth: ${currentDepth} | Loc: ${displayLoc ? displayLoc.cellRef : 'N/A'}`;
-
         const rowItem = {
           node: node,
           id: node.id,
@@ -1546,8 +1541,7 @@
           expanded: node.expanded === true,
           checked: node.checked !== false,
           excelLoc: displayLoc,
-          isFolder: node.isFolder === true,
-          debugTooltip: debugTitle
+          isFolder: node.isFolder === true
         };
 
         rows.push(rowItem);
@@ -1679,7 +1673,7 @@
         const showInputBox = isEditMode || hasValueContent || isReq;
 
         html += `
-          <div class="virtual-row ${!item.checked ? 'node-hidden' : ''}" style="padding-left: ${paddingLeft}px;" data-id="${item.id}" title="${item.debugTooltip || item.label}">
+          <div class="virtual-row ${!item.checked ? 'node-hidden' : ''}" style="padding-left: ${paddingLeft}px;" data-id="${item.id}">
             <span class="toggle-icon ${!item.hasChildren ? 'hidden-icon' : ''}" onclick="toggleVirtualExpand('${item.id}')">
               <i class="fa-solid ${item.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i>
             </span>
@@ -1687,13 +1681,14 @@
               <i class="fa-solid ${item.checked ? 'fa-eye' : 'fa-eye-slash'}"></i>
             </div>
             ${item.isFolder ? `<i class="fa-solid ${item.expanded ? 'fa-folder-open' : 'fa-folder'} folder-icon"></i>` : ''}
-            ${!isAnonymousItem ? `<span class="node-label ${item.isFolder ? 'folder-label' : ''}">${item.label}</span>` : ''}
+            ${!isAnonymousItem ? `<span class="node-label ${item.isFolder ? 'folder-label' : ''}" title="${item.label}">${item.label}</span>` : ''}
             ${(!item.hasChildren && showInputBox) || hasValueContent ? `
               ${!isAnonymousItem ? `<span class="node-colon">:</span>` : ''}
               <input 
                 type="text" 
                 class="node-value-input" 
                 value="${displayVal}" 
+                title="${displayVal}"
                 placeholder="${isReq ? 'Mandatory / Recommended...' : 'value'}"
                 ${isReq ? 'list="requirement-options-list"' : ''}
                 onchange="updateNodeValue('${item.targetId}', this.value)"
@@ -2282,6 +2277,9 @@
         };
       }
 
+      // إتاحة rawRows على مستوى window للاختبار والمعاينة المباشرة
+      window.rawRows = rawRows;
+
       return buildTreeFrom2DMatrix(rawRows, sheetName);
     }
 
@@ -2300,9 +2298,6 @@
 
     function buildTreeFrom2DMatrix(rawRows, sheetName) {
       if (!rawRows || rawRows.length === 0) return [];
-
-      // Reset global debug log on each workbook parse
-      window.__OPAS_ROW_DEBUG_LOG = [];
 
       let nodeCount = 0;
       function createNode(label, value = null, isExpanded = false, loc = null, versions = null, isAux = false, isFolder = false) {
@@ -2544,7 +2539,7 @@
           let cur_target_container = resourceRoot; 
 
           // =========================================================================
-          // ROBUST STACK ENGINE (Guaranteed Safe from undefined errors)
+          // UNIVERSAL SAFE STACK ENGINE
           // =========================================================================
           let stack = [{ node: cur_target_container, depth: -1 }];
           let isParsingEnumTable = false;
@@ -2752,7 +2747,6 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
-              // Measure whitespace indents
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const rawSpaces = rawPrefixMatch
@@ -2762,7 +2756,6 @@
 
               const totalSpaces = rawSpaces + (cellLevelStyleIndent * 3);
 
-              // Depth Quantization: 0 = Root Property (e.g. MemoryLocation), 1 = Child Sibling, 2 = Grandchild
               let itemDepth = 0;
               if (totalSpaces >= 6) {
                 itemDepth = 2;
@@ -2782,8 +2775,6 @@
               attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
 
-              let assignedParentName = "ROOT";
-
               if (explicitParent) {
                 explicitParent.children.push(newNode);
                 stack = [
@@ -2791,36 +2782,20 @@
                   { node: explicitParent, depth: 0 },
                   { node: newNode, depth: itemDepth || 1 }
                 ];
-                assignedParentName = explicitParent.label;
               } else {
-                // Pop stack until parent depth is strictly less than item depth
                 while (stack.length > 1 && stack[stack.length - 1].depth >= itemDepth) {
                   stack.pop();
                 }
 
-                // Parent is guaranteed to exist and have .children initialized
                 const assignedParent = (stack.length > 0) ? stack[stack.length - 1].node : cur_target_container;
                 if (assignedParent && Array.isArray(assignedParent.children)) {
                   assignedParent.children.push(newNode);
-                  assignedParentName = assignedParent.label;
                 } else {
                   cur_target_container.children.push(newNode);
-                  assignedParentName = cur_target_container.label;
                 }
 
                 stack.push({ node: newNode, depth: itemDepth });
               }
-
-              // Record complete debug row in global log for inspection
-              window.__OPAS_ROW_DEBUG_LOG.push({
-                row: rIndex + 1,
-                rawText: JSON.stringify(pColA),
-                label: effectiveLabel,
-                leadSpaces: rawSpaces,
-                styleIndent: cellLevelStyleIndent,
-                depth: itemDepth,
-                assignedParent: assignedParentName
-              });
 
               isParsingEnumTable = false;
               currentEnumContainer = null;
@@ -2969,13 +2944,6 @@
           }
           return true;
         });
-      }
-
-      // Print full summary table of all processed rows in browser console
-      if (window.__OPAS_ROW_DEBUG_LOG && window.__OPAS_ROW_DEBUG_LOG.length > 0) {
-        console.groupCollapsed("%c[FULL PARSER DEBUG] All Rows Debug Table (Click to Expand)", "background: #10b981; color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: bold;");
-        console.table(window.__OPAS_ROW_DEBUG_LOG);
-        console.groupEnd();
       }
 
       return cleanPhantomNodes(finalTree);
