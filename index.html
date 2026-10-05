@@ -2687,14 +2687,14 @@
             } else if (pColA.startsWith("         ") && cur_sub_sub_prop_node) {
               const propName = pColA.trim();
               const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColBTrim) node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              if (pColB.trim()) node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_sub_prop_node.children.push(node);
             } else if (pColA.startsWith("      ") && cur_sub_prop_node) {
               const propName = pColA.trim();
               cur_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColBTrim) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              if (pColB.trim()) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_prop_node.children.push(cur_sub_sub_prop_node);
@@ -2705,22 +2705,21 @@
               }
               cur_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_sub_prop_node = null;
-              if (pColBTrim) cur_sub_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              if (pColB.trim()) cur_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_prop_node.children.push(cur_sub_prop_node);
-            } else if (pColATrim && !pColATrim.startsWith("Profile") && pColATrim !== "ResourceRequirement" && pColATrim !== "Resource MinVersion") {
-              const propName = pColATrim;
+            } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
+              const propName = pColA.trim();
               cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_prop_node = null;
               cur_sub_sub_prop_node = null;
-              isParsingEnumTable = false;
-              currentEnumContainer = null;
-              if (pColBTrim) cur_prop_node.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
+              if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
-              cur_target_container.children.push(cur_prop_node);
+              resourceRoot.children.push(cur_prop_node);
             }
+
 
             rIndex++;
           }
