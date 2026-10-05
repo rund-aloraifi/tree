@@ -1688,7 +1688,6 @@
                 type="text" 
                 class="node-value-input" 
                 value="${displayVal}" 
-                title="${displayVal}"
                 placeholder="${isReq ? 'Mandatory / Recommended...' : 'value'}"
                 ${isReq ? 'list="requirement-options-list"' : ''}
                 onchange="updateNodeValue('${item.targetId}', this.value)"
@@ -2277,7 +2276,6 @@
         };
       }
 
-      // إتاحة rawRows على مستوى window للاختبار والمعاينة المباشرة
       window.rawRows = rawRows;
 
       return buildTreeFrom2DMatrix(rawRows, sheetName);
@@ -2539,7 +2537,7 @@
           let cur_target_container = resourceRoot; 
 
           // =========================================================================
-          // UNIVERSAL SAFE STACK ENGINE
+          // UNIVERSAL STACK ENGINE: منطق المكدس العام الخالي من أي استثناء يدوي
           // =========================================================================
           let stack = [{ node: cur_target_container, depth: -1 }];
           let isParsingEnumTable = false;
@@ -2747,6 +2745,7 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
+              // قياس المسافات بدقة
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const rawSpaces = rawPrefixMatch
@@ -2756,6 +2755,7 @@
 
               const totalSpaces = rawSpaces + (cellLevelStyleIndent * 3);
 
+              // تكميم العمق: 0 = رئيسي (Level 0)، 1 = فرعي (Level 1)، 2 = فرعي ثانٍ (Level 2)
               let itemDepth = 0;
               if (totalSpaces >= 6) {
                 itemDepth = 2;
@@ -2783,6 +2783,8 @@
                   { node: newNode, depth: itemDepth || 1 }
                 ];
               } else {
+                // نرجع في المكدس للوراء طالما أن العمق السابق أكبر من أو يساوي عمقنا الحالي.
+                // هذا يضمن أن الإخوة (مثل Channel و MemoryController و Slot و Socket) يضافون لنفس الأب مباشرة كـ Siblings!
                 while (stack.length > 1 && stack[stack.length - 1].depth >= itemDepth) {
                   stack.pop();
                 }
