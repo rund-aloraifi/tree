@@ -2724,7 +2724,12 @@
             rIndex++;
           }
 
-          resourcesContainerNode.children.push(resourceRoot);
+          if (currentActiveFolder) {
+            currentActiveFolder.children.push(resourceRoot);
+          } else {
+            resourcesContainerNode.children.push(resourceRoot);
+          }
+
           i = rIndex - 1;
         } 
         
