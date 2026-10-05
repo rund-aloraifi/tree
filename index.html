@@ -2067,6 +2067,28 @@
       }, 20);
     }
 
+    function parseStylesIndentMap(stylesXmlString) {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(stylesXmlString, "application/xml");
+        const cellXfs = doc.getElementsByTagName("cellXfs")[0];
+        if (!cellXfs) return [];
+        const xfNodes = cellXfs.getElementsByTagName("xf");
+        const indents = [];
+        for (let i = 0; i < xfNodes.length; i++) {
+          const alignment = xfNodes[i].getElementsByTagName("alignment")[0];
+          let indentVal = 0;
+          if (alignment && alignment.hasAttribute("indent")) {
+            indentVal = parseInt(alignment.getAttribute("indent"), 10) || 0;
+          }
+          indents[i] = indentVal;
+        }
+        return indents;
+      } catch (err) {
+        return [];
+      }
+    }
+
     async function parseAndOpenExcelBuffer(buffer, fileName, preferredSheetName = null) {
       const zip = await JSZip.loadAsync(buffer);
       const workbookXml = await zip.file("xl/workbook.xml").async("string");
@@ -2211,7 +2233,7 @@
           const isEl = cellEl.getElementsByTagName("is")[0];
 
           if (cellType === "s" && vEl) {
-            const ssIndex = parseInt(vEl.textContent);
+            const ssIndex = parseInt(vEl.textContent, 10);
             val = sharedStrings[ssIndex] || "";
           } else if (cellType === "inlineStr" && isEl) {
             const tElements = isEl.getElementsByTagName("t");
@@ -2237,6 +2259,7 @@
         };
       }
 
+      window.rawRows = rawRows;
       return buildTreeFrom2DMatrix(rawRows, sheetName);
     }
 
@@ -2448,7 +2471,7 @@
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event)
+        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event) - من الكود الأول
         const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
         if (folderMatch) {
           const folderName = folderMatch[2].trim();
@@ -2494,13 +2517,13 @@
             }
           }
 
+          // =========================================================================
+          // استخدام منطق التداخل (Nesting Logic) الخاص بالكود الثاني بدقة:
+          // =========================================================================
           let rIndex = i + 1;
-          let cur_target_container = resourceRoot; 
           let cur_prop_node = null;
           let cur_sub_prop_node = null;
           let cur_sub_sub_prop_node = null;
-          let isParsingEnumTable = false;
-          let currentEnumContainer = null;
 
           while (rIndex < rawRows.length) {
             const pRowObj = rawRows[rIndex];
@@ -2518,22 +2541,20 @@
 
             const pColATrim = pColA.trim();
             const pColATrimLower = pColATrim.toLowerCase();
-            const pColBTrim = pColB.trim();
-            const pColBTrimLower = pColBTrim.toLowerCase();
 
-            // Skip empty marker rows
-            if (pColATrimLower === "f" && !pColBTrim) {
+            // 1. تجاهل الأسطر غير المهمة
+            if (pColATrimLower === "f" && !pColB.trim()) {
               rIndex++;
               continue;
             }
 
-            // Skip URI section header rows
+            // 2. تخطي سطر ترويسة الروابط سواء كانت 'URIs' أو 'URIs:' لتجنب إنشاء عقد فارغة
             if (/(?:uris|uris:)$/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
 
-            // Multi-URI collection logic
+            // 3. التقاط وتجميع كافة الروابط بدون عمل خروج من الحلقة
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
@@ -2541,20 +2562,17 @@
                 resourceRoot.children.push(uriNode);
               }
 
-              const uriLines = pColATrim.split(/[\r\n]+/).map(u => u.trim()).filter(u => u.includes("/redfish/v1/"));
-              uriLines.forEach(uStr => {
-                const alreadyExists = uriNode.children.some(c => c.value === uStr);
-                if (!alreadyExists) {
-                  const uriIndex = uriNode.children.length + 1;
-                  uriNode.children.push(createNode(`URI [${uriIndex}]`, uStr, false, getCellMeta(pRowObj, 0), rowVersions));
-                }
-              });
+              // التحقق من عدم التكرار ثم إضافة الرابط كعقدة مصفوفية
+              const exists = uriNode.children.some(c => (c.value || c.label) === pColATrim);
+              if (!exists) {
+                uriNode.children.push(createNode("", pColATrim, false, getCellMeta(pRowObj, 0), rowVersions));
+              }
 
               rIndex++;
               continue;
             }
 
-            // Terminate property loop on next section or conditional block
+            // 4. إيقاف الفحص عند الوصول إلى بداية قسم جديد رئيسي فقط
             if (
               pColATrim.startsWith("1.1.") || 
               pColATrim.startsWith("6.5.") || 
@@ -2564,99 +2582,15 @@
               break;
             }
 
-            // Table Boundaries: Only create sub-containers for actual variant tables (e.g. IPv4/IPv6)
-            if (/^Table\s+\d+:/i.test(pColATrim)) {
-              if (pColATrimLower.includes("values")) {
-                isParsingEnumTable = true;
-                if (cur_prop_node) {
-                  currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
-                  if (!currentEnumContainer) {
-                    currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    cur_prop_node.children.push(currentEnumContainer);
-                  }
-                }
-              } else {
-                isParsingEnumTable = false;
-                currentEnumContainer = null;
-                
-                let subTableName = pColATrim.replace(/^Table\s+\d+:\s*/i, "").trim();
-                if (subTableName.toLowerCase().includes("profile map for")) {
-                  subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
-                }
-
-                // Check if this table represents an explicit variant (e.g. IPv4 vs IPv6)
-                const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
-                                       /\(ipv[46]\)/i.test(subTableName) ||
-                                       (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
-
-                if (isVariantTable) {
-                  let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
-                  if (!subGroup) {
-                    subGroup = createNode(subTableName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    resourceRoot.children.push(subGroup);
-                  }
-                  cur_target_container = subGroup;
-                } else {
-                  // Standard main resource table: put properties directly under the resource root!
-                  cur_target_container = resourceRoot;
-                }
-
-                cur_prop_node = null;
-                cur_sub_prop_node = null;
-                cur_sub_sub_prop_node = null;
-              }
-              rIndex++;
-              continue;
-            }
-
-            // Shaded sub-object variant headers (e.g. IPAddress (IPv4))
-            if (
-              (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
-              !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
-            ) {
-              isParsingEnumTable = false;
-              let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === pColATrimLower);
-              if (!subGroup) {
-                subGroup = createNode(pColATrim, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                resourceRoot.children.push(subGroup);
-              }
-              cur_target_container = subGroup;
-              cur_prop_node = null;
-              cur_sub_prop_node = null;
-              cur_sub_sub_prop_node = null;
-              rIndex++;
-              continue;
-            }
-
-            // Header row of Enum Table (String | Description)
-            if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
-              isParsingEnumTable = true;
-              if (cur_prop_node && !currentEnumContainer) {
-                currentEnumContainer = cur_prop_node.children.find(c => c.label === "Values");
-                if (!currentEnumContainer) {
-                  currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                  cur_prop_node.children.push(currentEnumContainer);
-                }
-              }
-              rIndex++;
-              continue;
-            }
-
-            // Parse Enum value entries (EUI, UUID, etc.)
-            if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
-              const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
-              currentEnumContainer.children.push(valNode);
-              rIndex++;
-              continue;
-            }
-
-            // Skip table labels, profile repeated headers
+            // 5. تجاهل ترويسات الجداول والبيانات الوصفية (مطابق للكود الثاني لتفادي كسر الهيكلية)
             if (
               pColATrimLower === "property" ||
               pColATrimLower === "(property)" ||
+              pColATrim.startsWith("Table ") ||
+              /Table\s+[0-9]+:/i.test(pColATrim) ||
               /\([vV]?[0-9]+[_\.0-9a-zA-Z]*\)/.test(pColATrim) || 
-              pColBTrim === "Profile" || 
-              pColC.trim() === "Profile" || 
+              pColB === "Profile" || 
+              pColC === "Profile" || 
               pColATrim === "ProfileName" || 
               pColATrim === "ProfilePurpose" ||
               rIndex === rowDescIdx
@@ -2665,12 +2599,11 @@
               continue;
             }
 
-            // Standard property mapping
             const reqs = [pLine[2], pLine[3], pLine[4], pLine[5], pLine[6], pLine[7]];
 
             if (pColA === "ResourceRequirement") {
-              attachProfileRequirements(cur_target_container, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(cur_target_container, specialReqsRaw, pRowObj, rowVersions);
+              attachProfileRequirements(resourceRoot, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(resourceRoot, specialReqsRaw, pRowObj, rowVersions);
             } else if (pColA === "Resource MinVersion") {
               const minVersionNode = createNode("MinVersion", null, false, getCellMeta(pRowObj, 0), rowVersions);
               const minVers = [
@@ -2683,8 +2616,8 @@
                   minVersionNode.children.push(createNode(mv.prof, String(mv.ver).trim(), false, getCellMeta(pRowObj, mv.col), rowVersions));
                 }
               });
-              if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
-            } else if (pColA.startsWith("         ") && cur_sub_sub_prop_node) {
+              if (minVersionNode.children.length > 0) resourceRoot.children.push(minVersionNode);
+            } else if (pColA.startsWith("          ") && cur_sub_sub_prop_node) {
               const propName = pColA.trim();
               const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColB.trim()) node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
@@ -2719,7 +2652,6 @@
               attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
               resourceRoot.children.push(cur_prop_node);
             }
-
 
             rIndex++;
           }
@@ -2848,6 +2780,7 @@
         });
       }
 
+      // إضافة منطق دمج العقد المكررة (Deduplication) من الكود الثاني
       function deduplicateChildNodes(node) {
         if (!node.children || node.children.length <= 1) return;
         const uniqueMap = new Map();
@@ -3268,6 +3201,8 @@
       const file = getActiveFile();
       if (!file) return;
       setExpandedRecursive(file.treeData, false);
+      const resContainer = file.treeData.find(n => n.label === "Resources");
+      if (resContainer) resContainer.expanded = true;
       refreshVirtualTree();
     }
 
