@@ -29,10 +29,6 @@
       --table-th-bg: #e2e8f0;
       --search-match-bg: #fef08a;
       --search-match-active: #f97316;
-      --tag-mandatory-bg: rgba(239, 68, 68, 0.12);
-      --tag-mandatory-color: #dc2626;
-      --tag-rec-bg: rgba(37, 99, 235, 0.12);
-      --tag-rec-color: #2563eb;
     }
 
     body.dark-theme {
@@ -54,819 +50,92 @@
       --table-th-bg: #1f2937;
       --search-match-bg: rgba(234, 179, 8, 0.4);
       --search-match-active: rgba(249, 115, 22, 0.9);
-      --tag-mandatory-bg: rgba(239, 68, 68, 0.25);
-      --tag-mandatory-color: #f87171;
-      --tag-rec-bg: rgba(96, 165, 250, 0.2);
-      --tag-rec-color: #60a5fa;
     }
 
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    }
-
-    body {
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      transition: background-color 0.2s ease, color 0.2s ease;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
     header {
-      height: 52px;
-      background-color: var(--bg-panel);
-      border-bottom: 1px solid var(--border-color);
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      padding: 0 15px;
-      gap: 10px;
-      z-index: 1000;
-      position: relative;
-      overflow: visible;
-      white-space: nowrap;
-      transition: background-color 0.2s ease, border-color 0.2s ease;
+      height: 52px; background-color: var(--bg-panel); border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: flex-start; padding: 0 15px; gap: 10px; z-index: 1000;
     }
-
     header select, header input {
-      background-color: var(--bg-dark);
-      border: 1px solid var(--border-color);
-      color: var(--text-main);
-      padding: 5px 9px;
-      border-radius: 4px;
-      font-size: 0.82rem;
-      outline: none;
-      transition: border-color 0.15s, background-color 0.2s ease, color 0.2s ease;
+      background-color: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-main);
+      padding: 5px 9px; border-radius: 4px; font-size: 0.82rem; outline: none;
     }
+    .toolbar-divider { height: 18px; width: 1px; background-color: var(--border-color); margin: 0 2px; }
 
-    header select:focus, header input:focus {
-      border-color: var(--profile-yellow);
-    }
-
-    .toolbar-divider {
-      height: 18px;
-      width: 1px;
-      background-color: var(--border-color);
-      margin: 0 2px;
-      flex-shrink: 0;
-    }
-
-    .dropdown-container {
-      position: relative;
-      display: inline-block;
-      flex-shrink: 0;
-      z-index: 1001;
-    }
-
+    .dropdown-container { position: relative; display: inline-block; }
     .dropdown-menu {
-      display: none;
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      background-color: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
-      z-index: 9999;
-      min-width: 200px;
-      padding: 6px 0;
+      display: none; position: absolute; top: calc(100% + 6px); left: 0; background-color: var(--bg-panel);
+      border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 9999; min-width: 200px; padding: 6px 0;
     }
+    .dropdown-menu.show { display: block; }
+    .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; color: var(--text-main); font-size: 0.84rem; cursor: pointer; }
+    .dropdown-item:hover { background-color: var(--bg-hover); color: var(--accent-primary); }
 
-    .dropdown-menu.show {
-      display: block;
-    }
+    .container { display: flex; flex: 1; height: calc(100vh - 52px); width: 100vw; position: relative; }
+    .tree-panel { flex: 1; display: flex; flex-direction: column; padding: 20px 20px 0 20px; min-width: 220px; overflow: hidden; }
 
-    .dropdown-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 9px 16px;
-      color: var(--text-main);
-      font-size: 0.84rem;
-      cursor: pointer;
-      text-decoration: none;
-      transition: background-color 0.15s ease, color 0.15s ease;
-    }
-
-    .dropdown-item:hover {
-      background-color: var(--bg-hover);
-      color: var(--accent-primary);
-    }
-
-    .multi-select-popover {
-      display: none;
-      position: absolute;
-      top: calc(100% + 6px);
-      left: 0;
-      background-color: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-      z-index: 9999;
-      min-width: 210px;
-      max-height: 250px;
-      overflow-y: auto;
-      padding: 6px 0;
-    }
-
-    .multi-select-popover.show {
-      display: block;
-    }
-
-    .multi-select-option {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 14px;
-      font-size: 0.82rem;
-      cursor: pointer;
-      user-select: none;
-    }
-
-    .multi-select-option:hover {
-      background-color: var(--bg-hover);
-    }
-
-    .multi-select-option input {
-      accent-color: var(--accent-primary);
-      cursor: pointer;
-    }
-
-    .file-tabs-bar {
-      height: 38px;
-      background-color: var(--tab-bar-bg);
-      border-bottom: 1px solid var(--border-color);
-      display: none;
-      align-items: center;
-      padding: 0 10px;
-      gap: 4px;
-      overflow-x: auto;
-      z-index: 10;
-      transition: background-color 0.2s ease;
-    }
-
-    .file-tabs-bar.visible-bar {
-      display: flex;
-    }
-
-    .file-tab {
-      background-color: var(--bg-panel);
-      color: var(--text-muted);
-      border: 1px solid var(--border-color);
-      border-bottom: none;
-      padding: 5px 12px;
-      border-top-left-radius: 6px;
-      border-top-right-radius: 6px;
-      font-size: 0.82rem;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
-      transition: all 0.15s ease;
-    }
-
-    .file-tab:hover {
-      background-color: var(--bg-hover);
-      color: var(--text-main);
-    }
-
-    .file-tab.active {
-      background-color: var(--bg-dark);
-      color: var(--accent-primary);
-      border-color: var(--border-color);
-      border-top: 2px solid var(--accent-primary);
-      font-weight: 600;
-    }
-
-    .tab-close-btn {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      border-radius: 3px;
-      padding: 1px 4px;
-    }
-
-    .tab-close-btn:hover {
-      color: var(--danger-red);
-      background-color: rgba(239, 68, 68, 0.15);
-    }
-
-    .container {
-      display: flex;
-      flex: 1;
-      height: calc(100vh - 52px);
-      width: 100vw;
-      position: relative;
-      z-index: 1;
-    }
-
-    body.multi-file-active .container {
-      height: calc(100vh - 90px);
-    }
-
-    .tree-panel {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      padding: 20px 20px 0 20px;
-      background-color: var(--bg-dark);
-      min-width: 220px;
-      overflow: hidden;
-      container-type: inline-size;
-      transition: background-color 0.2s ease;
-      position: relative;
-    }
-
-    .resizer-divider {
-      width: 6px;
-      background-color: var(--border-color);
-      cursor: col-resize;
-      position: relative;
-      transition: background-color 0.2s ease;
-      z-index: 5;
-      flex-shrink: 0;
-    }
-
-    .resizer-divider:hover, .resizer-divider.dragging {
-      background-color: var(--accent-primary);
-    }
-
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .panel-header-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .panel-title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      white-space: nowrap;
-      color: var(--text-main);
-    }
-
-    .panel-title::before {
-      content: '';
-      width: 8px;
-      height: 8px;
-      background-color: var(--accent-primary);
-      border-radius: 50%;
-    }
-
-    .btn-add-root {
-      display: none !important;
-    }
-
-    body.edit-mode-active:not(.excel-file-active) .btn-add-root {
-      display: inline-flex !important;
-    }
-
-    body.excel-file-active .btn-add-root,
-    body.excel-file-active .action-btn.add-child-btn {
-      display: none !important;
-    }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; }
+    .panel-title { font-size: 1.1rem; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .panel-title::before { content: ''; width: 8px; height: 8px; background-color: var(--accent-primary); border-radius: 50%; }
 
     .btn {
-      background-color: var(--bg-card);
-      color: var(--text-main);
-      border: 1px solid var(--border-color);
-      padding: 5px 10px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.82rem;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      white-space: nowrap;
-      flex-shrink: 0;
-      transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+      background-color: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-color);
+      padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;
     }
+    .btn:hover { background-color: var(--bg-hover); }
+    .btn-green { background-color: var(--accent-primary); color: #fff; border: none; font-weight: 600; }
+    .btn-green:hover { background-color: var(--accent-primary-hover); }
 
-    .btn:hover {
-      background-color: var(--bg-hover);
-    }
-
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    .btn-green {
-      background-color: var(--accent-primary);
-      color: var(--accent-btn-text);
-      border: none;
-      font-weight: 600;
-    }
-
-    .btn-green:hover {
-      background-color: var(--accent-primary-hover);
-    }
-
-    .btn-toggle-edit {
-      border-color: var(--border-color);
-      color: var(--text-muted);
-    }
-
-    .btn-toggle-edit.active {
-      background-color: rgba(16, 185, 129, 0.2);
-      border-color: var(--accent-primary);
-      color: var(--accent-primary);
-    }
-
-    .search-bar {
-      position: relative;
-      margin-bottom: 10px;
-    }
-
-    .search-bar i {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-muted);
-      font-size: 0.9rem;
-    }
-
+    .search-bar { position: relative; margin-bottom: 10px; }
+    .search-bar i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.9rem; }
     .search-input {
-      width: 100%;
-      background-color: var(--bg-panel);
-      border: 1px solid var(--border-color);
-      padding: 8px 12px 8px 36px;
-      border-radius: 6px;
-      color: var(--text-main);
-      outline: none;
-      font-size: 0.9rem;
+      width: 100%; background-color: var(--bg-panel); border: 1px solid var(--border-color);
+      padding: 8px 12px 8px 36px; border-radius: 6px; color: var(--text-main); outline: none; font-size: 0.9rem;
     }
+    .tree-actions { display: flex; gap: 15px; margin-bottom: 10px; align-items: center; }
+    .action-link { color: var(--text-muted); font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 4px; }
+    .action-link:hover { color: var(--text-main); }
 
-    .search-input:focus {
-      border-color: var(--accent-primary);
-    }
-
-    .tree-actions {
-      display: flex;
-      gap: 15px;
-      margin-bottom: 10px;
-      align-items: center;
-    }
-
-    .action-link {
-      color: var(--text-muted);
-      font-size: 0.82rem;
-      text-decoration: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      white-space: nowrap;
-    }
-
-    .action-link:hover {
-      color: var(--text-main);
-    }
-
-    .tree-viewport {
-      flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      position: relative;
-    }
-
-    .tree-virtual-spacer {
-      width: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    .tree-virtual-content {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 2;
-    }
+    .tree-viewport { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; }
+    .tree-virtual-spacer { width: 100%; position: absolute; top: 0; left: 0; pointer-events: none; }
+    .tree-virtual-content { position: absolute; top: 0; left: 0; right: 0; }
 
     .virtual-row {
-      height: 30px;
-      display: flex;
-      align-items: center;
-      padding: 0 6px;
-      border-radius: 4px;
-      user-select: none;
-      transition: background-color 0.1s ease;
-      white-space: nowrap;
+      height: 30px; display: flex; align-items: center; padding: 0 6px; border-radius: 4px; user-select: none; white-space: nowrap;
     }
-
-    .virtual-row:hover {
-      background-color: var(--bg-hover);
-    }
-
-    .toggle-icon {
-      width: 16px;
-      height: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      color: var(--text-muted);
-      font-size: 0.72rem;
-      flex-shrink: 0;
-    }
-
-    .toggle-icon.hidden-icon {
-      visibility: hidden;
-    }
-
-    .folder-icon {
-      color: var(--profile-yellow);
-      margin-right: 5px;
-      font-size: 0.85rem;
-      flex-shrink: 0;
-    }
-
-    .visibility-toggle {
-      display: none;
-      width: 20px;
-      height: 20px;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.82rem;
-      color: var(--text-muted);
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-
-    body.edit-mode-active .visibility-toggle {
-      display: flex;
-    }
-
-    .visibility-toggle.visible {
-      color: var(--accent-primary);
-    }
-
-    .visibility-toggle.hidden-node {
-      color: var(--text-muted);
-      opacity: 0.35;
-    }
-
-    .node-label {
-      font-size: 0.9rem;
-      color: var(--text-main);
-      font-weight: 500;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      flex: 0 1 auto;
-      max-width: 45%;
-      margin-left: 4px;
-    }
-
-    .node-label.folder-label {
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .virtual-row.node-hidden .node-label,
-    .virtual-row.node-hidden .node-colon,
-    .virtual-row.node-hidden .node-value-input {
-      opacity: 0.35;
-    }
-
-    .node-colon {
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      margin: 0 4px;
-      flex-shrink: 0;
-    }
-
+    .virtual-row:hover { background-color: var(--bg-hover); }
+    .toggle-icon { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); font-size: 0.72rem; flex-shrink: 0; }
+    .toggle-icon.hidden-icon { visibility: hidden; }
+    .folder-icon { color: var(--profile-yellow); margin-right: 5px; font-size: 0.85rem; flex-shrink: 0; }
+    .node-label { font-size: 0.9rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; max-width: 45%; margin-left: 4px; }
+    .node-label.folder-label { font-weight: 600; }
+    .node-colon { color: var(--text-muted); font-size: 0.85rem; margin: 0 4px; flex-shrink: 0; }
     .node-value-input {
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--val-blue);
-      font-size: 0.85rem;
-      font-family: monospace;
-      outline: none;
-      padding: 1px 6px;
-      border-radius: 4px;
-      flex: 1 1 0%;
-      min-width: 60px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: none;
+      background: transparent; border: 1px solid transparent; color: var(--val-blue); font-size: 0.85rem;
+      font-family: monospace; outline: none; padding: 1px 6px; border-radius: 4px; flex: 1 1 0%; min-width: 60px;
+      overflow: hidden; text-overflow: ellipsis; pointer-events: none;
     }
+    body.edit-mode-active .node-value-input { pointer-events: auto; }
+    body.edit-mode-active .node-value-input:focus { border-color: var(--border-color); background-color: var(--bg-dark); }
 
-    body.edit-mode-active .node-value-input {
-      pointer-events: auto;
-    }
-
-    body.edit-mode-active .node-value-input:hover, 
-    body.edit-mode-active .node-value-input:focus {
-      border-color: var(--border-color);
-      background-color: var(--bg-dark);
-      text-overflow: clip;
-    }
-
-    .node-actions {
-      display: none;
-      align-items: center;
-      gap: 3px;
-      margin-left: auto;
-      flex-shrink: 0;
-    }
-
-    body.edit-mode-active .virtual-row:hover .node-actions {
-      display: flex;
-    }
-
-    .action-btn {
-      width: 20px;
-      height: 20px;
-      border-radius: 3px;
-      background-color: var(--bg-card);
-      border: 1px solid var(--border-color);
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 0.7rem;
-    }
-
-    .action-btn:hover {
-      color: var(--text-main);
-      background-color: var(--bg-hover);
-    }
-
-    .action-btn.delete-btn:hover {
-      color: var(--danger-red);
-      border-color: rgba(239, 68, 68, 0.4);
-    }
-
-    .output-panel {
-      width: 50%;
-      min-width: 25%;
-      display: flex;
-      flex-direction: column;
-      background-color: var(--bg-panel);
-      position: relative;
-      overflow: hidden;
-      transition: width 0.15s ease-out;
-    }
-
-    .output-panel.hidden-pane {
-      display: none !important;
-    }
-
-    .output-toolbar {
-      padding: 10px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--border-color);
-      flex-wrap: wrap;
-      gap: 8px;
-      min-height: 56px;
-    }
-
-    .toolbar-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .tab-group {
-      background-color: var(--bg-dark);
-      padding: 3px;
-      border-radius: 6px;
-      display: flex;
-      gap: 3px;
-      border: 1px solid var(--border-color);
-      flex-shrink: 0;
-    }
-
-    .tab-btn {
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      padding: 4px 12px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      border-radius: 4px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .tab-btn.active {
-      background-color: var(--accent-primary);
-      color: var(--accent-btn-text);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .code-search-box {
-      display: flex;
-      align-items: center;
-      background-color: var(--bg-dark);
-      border: 1px solid var(--border-color);
-      border-radius: 5px;
-      padding: 2px 6px;
-      gap: 4px;
-    }
-
-    .code-search-box input {
-      border: none;
-      background: transparent;
-      outline: none;
-      color: var(--text-main);
-      font-size: 0.8rem;
-      width: 110px;
-    }
-
-    .search-stat {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      white-space: nowrap;
-      margin: 0 2px;
-    }
-
-    .code-search-btn {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      font-size: 0.75rem;
-      padding: 2px 4px;
-      border-radius: 3px;
-    }
-
-    .code-search-btn:hover {
-      background-color: var(--bg-hover);
-      color: var(--text-main);
-    }
-
-    .code-container {
-      flex: 1;
-      padding: 15px;
-      overflow: hidden;
-      display: flex;
-    }
-
-    #code-output {
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      border: none;
-      font-family: "Fira Code", Monaco, Consolas, "Courier New", monospace;
-      color: var(--code-text);
-      font-size: 0.92rem;
-      line-height: 1.6;
-      outline: none;
-      white-space: pre;
-      overflow: auto;
-      tab-size: 2;
-    }
-
-    .code-output-mark {
-      background-color: var(--search-match-bg);
-      color: inherit;
-      border-radius: 2px;
-      padding: 1px 0;
-    }
-
-    .code-output-mark.active-match {
-      background-color: var(--search-match-active);
-      color: #ffffff;
-      font-weight: 600;
-      border-radius: 2px;
-      outline: 2px solid var(--search-match-active);
-    }
-
-    .compare-table-wrapper {
-      width: 100%;
-      height: 100%;
-      overflow: auto;
-    }
-
-    .compare-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-    }
-
-    .compare-table th, .compare-table td {
-      border: 1px solid var(--border-color);
-      padding: 8px 12px;
-      text-align: left;
-    }
-
-    .compare-table th {
-      background-color: var(--table-th-bg);
-      color: var(--text-main);
-      font-weight: 600;
-      position: sticky;
-      top: 0;
-      z-index: 2;
-    }
-
-    .compare-table tr:hover {
-      background-color: var(--bg-hover);
-    }
-
-    .path-code-last {
-      font-family: "Fira Code", Monaco, Consolas, monospace;
-      color: var(--val-blue);
-      font-weight: 600;
-      cursor: help;
-      text-decoration: underline dotted var(--text-muted);
-    }
-
-    .matrix-input {
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--val-blue);
-      font-size: 0.85rem;
-      font-family: monospace;
-      outline: none;
-      padding: 2px 6px;
-      border-radius: 4px;
-      width: 100%;
-      pointer-events: none;
-    }
-
-    body.edit-mode-active .matrix-input {
-      pointer-events: auto;
-    }
-
-    body.edit-mode-active .matrix-input:hover,
-    body.edit-mode-active .matrix-input:focus {
-      border-color: var(--border-color);
-      background-color: var(--bg-dark);
-    }
-
-    .version-tag {
-      display: inline-block;
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-size: 0.72rem;
-      font-family: monospace;
-      font-weight: 600;
-      margin-right: 3px;
-      background-color: rgba(37, 99, 235, 0.12);
-      color: var(--val-blue);
-    }
-
-    .diff-absent {
-      color: var(--text-muted);
-      font-style: italic;
-    }
-
-    .empty-placeholder {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      color: var(--text-muted);
-      gap: 12px;
-      font-size: 0.9rem;
-    }
+    .resizer-divider { width: 6px; background-color: var(--border-color); cursor: col-resize; flex-shrink: 0; }
+    .output-panel { width: 50%; min-width: 25%; display: flex; flex-direction: column; background-color: var(--bg-panel); overflow: hidden; }
+    .output-panel.hidden-pane { display: none !important; }
+    .output-toolbar { padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+    .tab-group { background-color: var(--bg-dark); padding: 3px; border-radius: 6px; display: flex; gap: 3px; border: 1px solid var(--border-color); }
+    .tab-btn { background: transparent; border: none; color: var(--text-muted); padding: 4px 12px; font-size: 0.8rem; font-weight: 600; border-radius: 4px; cursor: pointer; }
+    .tab-btn.active { background-color: var(--accent-primary); color: #fff; }
+    .code-container { flex: 1; padding: 15px; overflow: hidden; display: flex; }
+    #code-output { width: 100%; height: 100%; background: transparent; border: none; font-family: monospace; font-size: 0.92rem; outline: none; white-space: pre; overflow: auto; }
 
     #loading-overlay {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.25);
-      backdrop-filter: blur(2px);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 1rem;
-      gap: 10px;
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(2px); display: none; align-items: center; justify-content: center; z-index: 9999; color: #fff; font-size: 1rem; gap: 10px;
     }
-
-    #file-input {
-      display: none;
-    }
+    #file-input { display: none; }
   </style>
 </head>
 <body>
@@ -878,123 +147,51 @@
 
   <input type="file" id="file-input" multiple accept=".xlsx,.xls,.csv,.json,.yaml,.yml" onchange="handleFileSelect(event)">
 
-  <datalist id="requirement-options-list">
-    <option value="Mandatory"></option>
-    <option value="Conditional"></option>
-    <option value="Recommended"></option>
-    <option value="IfImplemented"></option>
-    <option value="None"></option>
-  </datalist>
-
   <header>
     <div class="dropdown-container">
       <button class="btn btn-green" onclick="toggleDropdownMenu(event)">
-        <i class="fa-solid fa-file"></i> File <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; margin-left: 2px;"></i>
+        <i class="fa-solid fa-file"></i> File <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem;"></i>
       </button>
       <div class="dropdown-menu" id="file-action-dropdown">
-        <a class="dropdown-item" onclick="triggerFileInput(); closeDropdownMenu();">
-          <i class="fa-solid fa-folder-open" style="color: var(--accent-primary);"></i> Open File(s)...
-        </a>
-        <a class="dropdown-item" onclick="saveExactPreservedExcelFile(); closeDropdownMenu();">
-          <i class="fa-solid fa-floppy-disk" style="color: var(--accent-primary);"></i> Save Updated Excel
-        </a>
+        <a class="dropdown-item" onclick="triggerFileInput(); closeDropdownMenu();"><i class="fa-solid fa-folder-open"></i> Open File(s)...</a>
+        <a class="dropdown-item" onclick="saveExactPreservedExcelFile(); closeDropdownMenu();"><i class="fa-solid fa-floppy-disk"></i> Save Updated Excel</a>
       </div>
     </div>
 
-    <div id="sheet-selector-group" style="display: none; align-items: center; gap: 6px;">
-      <span style="font-size: 0.8rem; color: var(--text-muted);"><i class="fa-solid fa-table-cells"></i> Sheet:</span>
-      <select id="excel-sheet-select" onchange="switchExcelSheet(this.value)"></select>
-    </div>
-
     <div class="toolbar-divider"></div>
-
-    <i class="fa-solid fa-layer-group" style="color: var(--accent-primary); font-size: 0.9rem; flex-shrink: 0;"></i>
-    <span style="font-size: 0.8rem; font-weight: 600; flex-shrink: 0;">View:</span>
-    
-    <select id="main-view-mode-select" style="font-weight: 600; flex-shrink: 0;" onchange="switchMainViewMode(this.value)">
+    <span style="font-size: 0.8rem; font-weight: 600;">View:</span>
+    <select id="main-view-mode-select">
       <option value="tree_view">Tree</option>
-      <option value="compare_view">Comparison Matrix</option>
     </select>
 
     <div class="toolbar-divider"></div>
-
-    <span style="font-size: 0.8rem; color: var(--text-muted); flex-shrink: 0;"><i class="fa-solid fa-code-branch"></i> Version:</span>
-    <select id="opas-version-filter-select" style="flex-shrink: 0;" onchange="applyVersionScopeFilter(this.value)">
-      <option value="__ALL__">All Versions</option>
-      <option value="V1">O-PAS V1</option>
-      <option value="V2">O-PAS V2</option>
-      <option value="V3">O-PAS V3</option>
+    <span style="font-size: 0.8rem; color: var(--text-muted);">Profile:</span>
+    <select id="view-profile-select" onchange="applyProfileFilter(this.value)">
+      <option value="__ALL__">All</option>
+      <option value="OSM-Redfish">OSM-Redfish</option>
+      <option value="OSM-RedfishBMC">OSM-RedfishBMC</option>
+      <option value="OSM-RedfishDCN">OSM-RedfishDCN</option>
     </select>
-
-    <div class="toolbar-divider"></div>
-
-    <div id="tree-view-controls" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;">
-      <span style="font-size: 0.8rem; color: var(--text-muted); flex-shrink: 0;">Profile:</span>
-      <select id="view-profile-select" style="flex-shrink: 0;" onchange="applyProfileFilter(this.value)">
-        <option value="__ALL__">All</option>
-      </select>
-
-      <select id="filter-behavior-mode" style="flex-shrink: 0;" onchange="applyProfileFilter(document.getElementById('view-profile-select').value)">
-        <option value="tree_and_json">Filter (Tree & Code)</option>
-        <option value="unhide_all">Unhide All</option>
-      </select>
-    </div>
-
-    <div id="compare-view-controls" style="display: none; gap: 8px; align-items: center; flex-shrink: 0;">
-      <i class="fa-solid fa-sliders" style="color: var(--profile-yellow); font-size: 0.88rem; flex-shrink: 0;"></i>
-      <span style="font-size: 0.8rem; color: var(--text-muted); flex-shrink: 0;">Pattern:</span>
-      <input type="text" id="profile-pattern-regex" value="OSM-.*" style="width: 80px; flex-shrink: 0;" title="Regex Pattern for Profiles" onchange="updateProfileDropdowns(); refreshView();">
-
-      <div class="dropdown-container">
-        <button class="btn" id="compare-select-btn" onclick="toggleMultiSelectPopover(event)">
-          <i class="fa-solid fa-list-check"></i> <span id="compare-select-label">Select Profiles</span> <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; margin-left: 2px;"></i>
-        </button>
-        <div class="multi-select-popover" id="compare-select-popover" onclick="event.stopPropagation()">
-          <div id="multi-select-options-container"></div>
-        </div>
-      </div>
-    </div>
 
     <div class="toolbar-divider" style="margin-left: auto;"></div>
-
-    <button class="btn" id="theme-toggle-btn" onclick="toggleDarkTheme()" title="Toggle Dark/Light Mode">
-      <i class="fa-solid fa-moon" id="theme-btn-icon"></i>
-      <span id="theme-btn-label">Dark</span>
-    </button>
+    <button class="btn" onclick="toggleDarkTheme()"><i class="fa-solid fa-moon"></i></button>
   </header>
 
-  <div class="file-tabs-bar" id="file-tabs-bar"></div>
-
   <div class="container" id="main-container">
-    <div class="tree-panel" id="tree-panel">
+    <div class="tree-panel">
       <div class="panel-header">
-        <div class="panel-title" id="tree-pane-title">Tree Navigator</div>
-
-        <div class="panel-header-controls">
-          <button class="btn btn-green" id="show-pane-resizer-btn" style="display: inline-flex;" onclick="toggleOutputPane()">
-            <i class="fa-solid fa-eye"></i> Show Pane
-          </button>
-
-          <button class="btn btn-toggle-edit" id="toggle-edit-btn" onclick="toggleEditMode()">
-            <i class="fa-solid fa-pen-to-square"></i> <span id="edit-mode-label">Edit: OFF</span>
-          </button>
-
-          <button class="btn btn-add-root" onclick="addRootNode()"><i class="fa-solid fa-plus-square"></i> Add Root</button>
+        <div class="panel-title">Tree Navigator</div>
+        <div>
+          <button class="btn btn-green" id="show-pane-resizer-btn" onclick="toggleOutputPane()"><i class="fa-solid fa-eye"></i> Show Pane</button>
         </div>
       </div>
 
-      <div class="search-bar" id="tree-search-bar">
+      <div class="search-bar">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input 
-          type="text" 
-          class="search-input" 
-          id="search-input" 
-          placeholder="Instant search specifications..." 
-          oninput="handleSearchInput(this.value)"
-        >
+        <input type="text" class="search-input" id="search-input" placeholder="Instant search..." oninput="handleSearchInput(this.value)">
       </div>
 
-      <div class="tree-actions" id="tree-action-links">
+      <div class="tree-actions">
         <span class="action-link" onclick="expandAll()"><i class="fa-solid fa-bars-staggered"></i> Expand All</span>
         <span class="action-link" onclick="collapseAll()"><i class="fa-solid fa-bars"></i> Collapse All</span>
         <span id="row-count-badge" style="font-size: 0.78rem; color: var(--text-muted); margin-left: auto;"></span>
@@ -1010,44 +207,17 @@
 
     <div class="output-panel hidden-pane" id="output-panel">
       <div class="output-toolbar">
-        <div class="toolbar-group">
-          <div class="tab-group">
-            <button class="tab-btn active" id="tab-yaml" onclick="switchFormat('yaml')">YAML</button>
-            <button class="tab-btn" id="tab-json" onclick="switchFormat('json')">JSON</button>
-          </div>
-
-          <div class="code-search-box">
-            <i class="fa-solid fa-magnifying-glass" style="font-size: 0.75rem; color: var(--text-muted);"></i>
-            <input 
-              type="text" 
-              id="code-search-input" 
-              placeholder="Find in code..." 
-              oninput="handleCodeSearchInput(this.value)" 
-              onkeydown="handleCodeSearchKeydown(event)"
-            />
-            <span class="search-stat" id="code-search-counter"></span>
-            <button class="code-search-btn" onclick="navigateCodeSearchMatch(-1)" title="Previous Match (Shift+Enter)"><i class="fa-solid fa-chevron-up"></i></button>
-            <button class="code-search-btn" onclick="navigateCodeSearchMatch(1)" title="Next Match (Enter)"><i class="fa-solid fa-chevron-down"></i></button>
-          </div>
+        <div class="tab-group">
+          <button class="tab-btn active" id="tab-yaml" onclick="switchFormat('yaml')">YAML</button>
+          <button class="tab-btn" id="tab-json" onclick="switchFormat('json')">JSON</button>
         </div>
-
-        <div class="toolbar-group">
+        <div>
           <button class="btn" onclick="copyToClipboard()"><i class="fa-regular fa-copy"></i> Copy</button>
-          <button class="btn" onclick="downloadFile()"><i class="fa-solid fa-download"></i> Save file</button>
-          
-          <button class="btn" title="Hide Code Pane" onclick="toggleOutputPane()">
-            <i class="fa-solid fa-eye-slash"></i> Hide Pane
-          </button>
+          <button class="btn" onclick="toggleOutputPane()"><i class="fa-solid fa-eye-slash"></i> Hide</button>
         </div>
       </div>
-
-      <div class="error-banner" id="error-banner" style="display: none;">
-        <i class="fa-solid fa-triangle-exclamation"></i>
-        <span id="error-message">Invalid syntax</span>
-      </div>
-
       <div class="code-container">
-        <div id="code-output" contenteditable="true" spellcheck="false" oninput="handleCodeInput()"></div>
+        <div id="code-output"></div>
       </div>
     </div>
   </div>
@@ -1056,88 +226,31 @@
     const DEFAULT_EXCEL_FILENAME = "O-PAS-Redfish-Profile-Master.xlsx";
     const TARGET_SHEET_NAME = "Profile";
 
-    let isEditMode = false;
     let isPaneHidden = true;
-    let currentViewMode = "tree_view";
     let selectedProfileFilter = "__ALL__";
-    let selectedVersionScope = "__ALL__";
-    let selectedCompareProfiles = [];
-    let searchDebounceTimer = null;
-
     let codeRawText = "";
-    let currentSearchQuery = "";
-    let activeMatchIndex = 0;
-
     let filesState = [];
     let activeFileId = null;
-    let isUpdatingFromTree = false;
-
     const ROW_HEIGHT = 30;
     let virtualRowsList = [];
 
-    const AUXILIARY_COMPLEX_TYPES = [
-      'ActionInfo', 'Event', 'IPAddress', 'IPStaticAddress', 
-      'IPGatewayStaticAddress', 'Payload', 'Identifier', 
-      'AttributeRegistry', 'Common', 'Common Properties', 'Payload Annotations', 
-      'MaintananceWindow', 'OperationApplyTimeSupport', 
-      'PreferredApplyTime', 'Redundancy', 'Schedule', 'Settings'
-    ];
+    document.addEventListener("DOMContentLoaded", () => {
+      autoLoadDefaultExcelWorkbook();
+    });
 
-    function parseSpecialReqs(specStr) {
-      if (!specStr || typeof specStr !== 'string') return [];
-      const raw = specStr.trim();
-      if (!raw) return [];
-
-      const results = [];
-      const handledKeys = new Set();
-      const lowerRaw = raw.toLowerCase();
-
-      if (lowerRaw.includes("createresource")) {
-        results.push({ key: "CreateResource", val: true });
-        handledKeys.add("createresource");
+    async function autoLoadDefaultExcelWorkbook() {
+      try {
+        showLoading(true, "Loading Master Specification...");
+        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/675a55ebd505066cd11a7a2a855183ae7f265923/O-PAS-Redfish-Profile-Master.xlsx";
+        const response = await fetch(rawFileUrl);
+        if (!response.ok) return;
+        const buffer = await response.arrayBuffer();
+        await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
+      } catch (err) {
+        console.warn("Autoload skipped:", err);
+      } finally {
+        showLoading(false);
       }
-      if (lowerRaw.includes("deleteresource") || lowerRaw.includes("deletresource")) {
-        results.push({ key: "DeleteResource", val: true });
-        handledKeys.add("deleteresource");
-        handledKeys.add("deletresource");
-      }
-      if (lowerRaw.includes("updateresource")) {
-        results.push({ key: "UpdateResource", val: true });
-        handledKeys.add("updateresource");
-      }
-      if (lowerRaw.includes("mincount1")) {
-        results.push({ key: "MinCount", val: 1 });
-        handledKeys.add("mincount1");
-      }
-
-      const linesOrTokens = raw.split(/[\r\n,;]+/).map(s => s.trim()).filter(Boolean);
-
-      linesOrTokens.forEach(entry => {
-        const subTokens = entry.split(/\s+/).filter(Boolean);
-
-        subTokens.forEach(tok => {
-          const lowerTok = tok.toLowerCase();
-          if (handledKeys.has(lowerTok)) return;
-
-          if (tok.includes(":")) {
-            const parts = tok.split(":");
-            const prefix = parts[0].trim();
-            const targetProp = parts.slice(1).join(":").trim();
-
-            if (prefix.toLowerCase() === "replaces") {
-              results.push({ key: "ReplacesProperty", val: targetProp });
-            } else if (prefix.toLowerCase() === "replacedby") {
-              results.push({ key: "ReplacedByProperty", val: targetProp });
-            } else if (prefix && targetProp) {
-              results.push({ key: prefix, val: targetProp });
-            }
-          } else if (!results.some(r => r.key.toLowerCase() === lowerTok)) {
-            results.push({ key: tok, val: true });
-          }
-        });
-      });
-
-      return results;
     }
 
     function showLoading(show = true, msg = "Processing Workbook...") {
@@ -1146,953 +259,28 @@
       el.style.display = show ? 'flex' : 'none';
     }
 
-    function simpleYamlDump(obj, indent = 0) {
-      let str = '';
-      const prefix = ' '.repeat(indent);
-      for (const key in obj) {
-        const val = obj[key];
-        if (Array.isArray(val)) {
-          str += `${prefix}${key}:\n`;
-          val.forEach(item => {
-            str += `${prefix}  - ${typeof item === 'object' ? JSON.stringify(item) : item}\n`;
-          });
-        } else if (typeof val === 'object' && val !== null) {
-          str += `${prefix}${key}:\n` + simpleYamlDump(val, indent + 2);
-        } else if (val === null || val === undefined || val === '') {
-          str += `${prefix}${key}:\n`;
-        } else {
-          str += `${prefix}${key}: ${val}\n`;
-        }
-      }
-      return str;
-    }
+    function toggleDropdownMenu(e) { e.stopPropagation(); document.getElementById("file-action-dropdown").classList.toggle("show"); }
+    function closeDropdownMenu() { document.getElementById("file-action-dropdown").classList.remove("show"); }
+    window.addEventListener("click", () => closeDropdownMenu());
 
-    document.addEventListener("DOMContentLoaded", () => {
-      initResizer();
-      renderTabsUI();
-      autoLoadDefaultExcelWorkbook();
-    });
+    function toggleDarkTheme() { document.body.classList.toggle("dark-theme"); }
 
-    async function autoLoadDefaultExcelWorkbook() {
-      try {
-        showLoading(true, `Loading Master Specification...`);
-        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/675a55ebd505066cd11a7a2a855183ae7f265923/O-PAS-Redfish-Profile-Master.xlsx";
-
-        const response = await fetch(rawFileUrl);
-        if (!response.ok) {
-          showLoading(false);
-          return;
-        }
-
-        const buffer = await response.arrayBuffer();
-        await parseAndOpenExcelBuffer(buffer, DEFAULT_EXCEL_FILENAME, TARGET_SHEET_NAME);
-      } catch (err) {
-        console.warn("Autoload default workbook skipped:", err);
-      } finally {
-        showLoading(false);
-      }
-    }
-
-    function escapeHtml(str) {
-      return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-    }
-
-    function renderCodeWithHighlights(text, query, activeIdx = 0) {
-      const codeContainer = document.getElementById("code-output");
-      const counter = document.getElementById("code-search-counter");
-
-      if (!query || query.trim() === "") {
-        codeContainer.textContent = text;
-        counter.textContent = "";
-        return;
-      }
-
-      const lowerText = text.toLowerCase();
-      const lowerQuery = query.toLowerCase();
-      const qLen = query.length;
-
-      let matchPositions = [];
-      let pos = lowerText.indexOf(lowerQuery);
-      while (pos !== -1) {
-        matchPositions.push(pos);
-        pos = lowerText.indexOf(lowerQuery, pos + qLen);
-      }
-
-      const totalMatches = matchPositions.length;
-      if (totalMatches === 0) {
-        codeContainer.textContent = text;
-        counter.textContent = "0/0";
-        return;
-      }
-
-      activeMatchIndex = ((activeIdx % totalMatches) + totalMatches) % totalMatches;
-      counter.textContent = `${activeMatchIndex + 1}/${totalMatches}`;
-
-      let html = "";
-      let lastPos = 0;
-
-      matchPositions.forEach((matchStart, i) => {
-        const isCurrent = (i === activeMatchIndex);
-        html += escapeHtml(text.substring(lastPos, matchStart));
-        html += `<mark class="code-output-mark ${isCurrent ? 'active-match' : ''}" id="code-mark-${i}">${escapeHtml(text.substring(matchStart, matchStart + qLen))}</mark>`;
-        lastPos = matchStart + qLen;
-      });
-
-      html += escapeHtml(text.substring(lastPos));
-      codeContainer.innerHTML = html;
-
-      const activeMark = document.getElementById(`code-mark-${activeMatchIndex}`);
-      if (activeMark) {
-        activeMark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    }
-
-    function handleCodeSearchInput(val) {
-      currentSearchQuery = val;
-      activeMatchIndex = 0;
-      renderCodeWithHighlights(codeRawText, currentSearchQuery, activeMatchIndex);
-    }
-
-    function handleCodeSearchKeydown(e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        navigateCodeSearchMatch(e.shiftKey ? -1 : 1);
-      }
-    }
-
-    function navigateCodeSearchMatch(direction) {
-      if (!currentSearchQuery || currentSearchQuery.trim() === "") return;
-      activeMatchIndex += direction;
-      renderCodeWithHighlights(codeRawText, currentSearchQuery, activeMatchIndex);
-    }
-
-    function toggleDropdownMenu(e) {
-      e.stopPropagation();
-      const menu = document.getElementById("file-action-dropdown");
-      menu.classList.toggle("show");
-    }
-
-    function closeDropdownMenu() {
-      const menu = document.getElementById("file-action-dropdown");
-      if (menu) menu.classList.remove("show");
-    }
-
-    function toggleMultiSelectPopover(e) {
-      e.stopPropagation();
-      const popover = document.getElementById("compare-select-popover");
-      popover.classList.toggle("show");
-    }
-
-    function closeMultiSelectPopover() {
-      const popover = document.getElementById("compare-select-popover");
-      if (popover) popover.classList.remove("show");
-    }
-
-    window.addEventListener("click", () => {
-      closeDropdownMenu();
-      closeMultiSelectPopover();
-    });
-
-    function toggleDarkTheme() {
-      const isDark = document.body.classList.toggle("dark-theme");
-      const icon = document.getElementById("theme-btn-icon");
-      const label = document.getElementById("theme-btn-label");
-
-      if (isDark) {
-        icon.className = "fa-solid fa-sun";
-        label.textContent = "Light";
-      } else {
-        icon.className = "fa-solid fa-moon";
-        label.textContent = "Dark";
-      }
-    }
-
-    function switchMainViewMode(mode) {
-      currentViewMode = mode;
-      
-      const paneTitle = document.getElementById("tree-pane-title");
-      const actionLinks = document.getElementById("tree-action-links");
-      const treeCtrls = document.getElementById("tree-view-controls");
-      const compareCtrls = document.getElementById("compare-view-controls");
-
-      if (currentViewMode === "compare_view") {
-        paneTitle.textContent = "Profile Comparison Matrix View";
-        actionLinks.style.display = "none";
-        treeCtrls.style.display = "none";
-        compareCtrls.style.display = "flex";
-        renderComparisonInTreePane();
-      } else {
-        paneTitle.textContent = "Tree Navigator View";
-        actionLinks.style.display = "flex";
-        treeCtrls.style.display = "flex";
-        compareCtrls.style.display = "none";
-        refreshVirtualTree();
-      }
-    }
-
-    function isProfileKey(label) {
-      const patternStr = document.getElementById("profile-pattern-regex")?.value || "OSM-.*";
-      try {
-        const regex = new RegExp(`^${patternStr}$`, "i");
-        return regex.test(label);
-      } catch (e) {
-        return label.startsWith("OSM-");
-      }
-    }
-
-    function detectProfilesInTree(nodes) {
-      const detected = new Set();
-      function scan(nodeList) {
-        nodeList.forEach(node => {
-          if (isProfileKey(node.label)) detected.add(node.label);
-          if (node.children) scan(node.children);
-        });
-      }
-      scan(nodes);
-      return Array.from(detected);
-    }
-
-    function updateProfileDropdowns() {
-      const file = getActiveFile();
-      const detectedProfiles = file ? detectProfilesInTree(file.treeData) : [];
-
-      const viewSelect = document.getElementById("view-profile-select");
-      const popoverContainer = document.getElementById("multi-select-options-container");
-
-      const currentVal = viewSelect.value || "__ALL__";
-      viewSelect.innerHTML = `<option value="__ALL__">All</option>`;
-      popoverContainer.innerHTML = "";
-
-      if (detectedProfiles.length === 0) {
-        selectedCompareProfiles = [];
-        updateCompareButtonLabel();
-        return;
-      }
-
-      detectedProfiles.forEach((prof) => {
-        const optView = document.createElement("option");
-        optView.value = prof;
-        optView.textContent = prof;
-        viewSelect.appendChild(optView);
-      });
-
-      if (selectedCompareProfiles.length === 0) {
-        selectedCompareProfiles = detectedProfiles.slice(0, 2);
-      } else {
-        selectedCompareProfiles = selectedCompareProfiles.filter(p => detectedProfiles.includes(p));
-        if (selectedCompareProfiles.length === 0) {
-          selectedCompareProfiles = detectedProfiles.slice(0, 2);
-        }
-      }
-
-      detectedProfiles.forEach(prof => {
-        const row = document.createElement("label");
-        row.className = "multi-select-option";
-        const isChecked = selectedCompareProfiles.includes(prof);
-        row.innerHTML = `
-          <input type="checkbox" value="${prof}" ${isChecked ? 'checked' : ''} onchange="handleProfileCheckboxChange(this)">
-          <span>${prof}</span>
-        `;
-        popoverContainer.appendChild(row);
-      });
-
-      updateCompareButtonLabel();
-      viewSelect.value = detectedProfiles.includes(currentVal) ? currentVal : "__ALL__";
-      selectedProfileFilter = viewSelect.value;
-    }
-
-    function handleProfileCheckboxChange(checkbox) {
-      const val = checkbox.value;
-      if (checkbox.checked) {
-        if (!selectedCompareProfiles.includes(val)) selectedCompareProfiles.push(val);
-      } else {
-        selectedCompareProfiles = selectedCompareProfiles.filter(p => p !== val);
-      }
-      updateCompareButtonLabel();
-      refreshView();
-    }
-
-    function updateCompareButtonLabel() {
-      const label = document.getElementById("compare-select-label");
-      if (selectedCompareProfiles.length === 0) {
-        label.textContent = "Select Profiles";
-      } else if (selectedCompareProfiles.length <= 2) {
-        label.textContent = selectedCompareProfiles.join(" vs ");
-      } else {
-        label.textContent = `${selectedCompareProfiles.length} Profiles Selected`;
-      }
-    }
-
-    function applyVersionScopeFilter(versionCode) {
-      selectedVersionScope = versionCode;
-      refreshView();
+    function toggleOutputPane() {
+      const panel = document.getElementById("output-panel");
+      isPaneHidden = !isPaneHidden;
+      panel.classList.toggle("hidden-pane", isPaneHidden);
       if (!isPaneHidden) updateOutputFromTree();
     }
 
-    function nodeMatchesVersionScope(node, scope) {
-      if (!scope || scope === "__ALL__") return true;
-      const vKey = scope.toLowerCase();
-
-      function hasVersion(n) {
-        if (n.opasVersions && n.opasVersions[vKey]) return true;
-        if (n.children && n.children.length > 0) {
-          return n.children.some(c => hasVersion(c));
-        }
-        return false;
-      }
-
-      return hasVersion(node);
-    }
-
-    function applyProfileFilter(profileName) {
-      selectedProfileFilter = profileName;
-      document.getElementById("search-input").value = "";
-      
-      const mode = document.getElementById("filter-behavior-mode").value;
-      const file = getActiveFile();
-
-      if (file) {
-        if (mode === "tree_and_json") {
-          syncTreeVisibilityWithProfile(file.treeData, profileName);
-        } else if (mode === "unhide_all") {
-          unhideAllProfilesInTree(file.treeData);
-          document.getElementById("view-profile-select").value = "__ALL__";
-          selectedProfileFilter = "__ALL__";
-          document.getElementById("filter-behavior-mode").value = "tree_and_json";
-        }
-      }
-
-      if (!isPaneHidden) updateOutputFromTree();
-      refreshView();
-    }
-
-    function syncTreeVisibilityWithProfile(nodes, profile) {
-      nodes.forEach(node => {
-        if (isProfileKey(node.label)) {
-          const matches = profile === "__ALL__" || node.label === profile;
-          node.checked = matches;
-          setSubtreeVisibility(node, matches);
-        }
-        if (node.children) syncTreeVisibilityWithProfile(node.children, profile);
-      });
-    }
-
-    function unhideAllProfilesInTree(nodes) {
-      nodes.forEach(node => {
-        if (isProfileKey(node.label)) {
-          node.checked = true;
-          setSubtreeVisibility(node, true);
-        }
-        if (node.children) unhideAllProfilesInTree(node.children);
-      });
-    }
-
-    function flattenVisibleNodes(nodes, profileFilter, searchTerm = "", versionScope = "__ALL__", currentDepth = 0) {
-      let rows = [];
-
-      nodes.forEach(node => {
-        if (isProfileKey(node.label) && profileFilter !== "__ALL__" && node.label !== profileFilter) {
-          return;
-        }
-
-        if (!nodeMatchesVersionScope(node, versionScope)) {
-          return;
-        }
-
-        const hasChildren = node.children && node.children.length > 0;
-        let displayLabel = node.label;
-        let displayVal = node.value;
-        let displayLoc = node.excelLoc;
-        let targetId = node.id;
-        let effectiveChildren = node.children || [];
-
-        if (hasChildren && profileFilter !== "__ALL__") {
-          const matchingProfileChild = node.children.find(c => c.label === profileFilter);
-          const nonProfileChildren = node.children.filter(c => !isProfileKey(c.label));
-
-          if (matchingProfileChild && matchingProfileChild.children && matchingProfileChild.children.length > 0) {
-            effectiveChildren = [
-              ...matchingProfileChild.children, 
-              ...nonProfileChildren
-            ];
-          } else if (matchingProfileChild) {
-            displayVal = matchingProfileChild.value;
-            displayLoc = matchingProfileChild.excelLoc;
-            targetId = matchingProfileChild.id;
-            effectiveChildren = nonProfileChildren;
-          } else {
-            effectiveChildren = nonProfileChildren;
-          }
-        }
-
-        const rowItem = {
-          node: node,
-          id: node.id,
-          targetId: targetId,
-          label: displayLabel,
-          value: displayVal,
-          depth: currentDepth,
-          hasChildren: effectiveChildren.length > 0,
-          expanded: node.expanded === true,
-          checked: node.checked !== false,
-          excelLoc: displayLoc,
-          isFolder: node.isFolder === true
-        };
-
-        rows.push(rowItem);
-
-        if (rowItem.hasChildren && rowItem.expanded) {
-          const childRows = flattenVisibleNodes(effectiveChildren, profileFilter, searchTerm, versionScope, currentDepth + 1);
-          rows = rows.concat(childRows);
-        }
-      });
-
-      return rows;
-    }
-
-    function filterTreeWithSearch(nodes, term) {
-      if (!term) return nodes;
-
-      function matchSubtree(nodeList) {
-        let matched = [];
-        nodeList.forEach(node => {
-          const labelMatch = node.label.toLowerCase().includes(term);
-          const valMatch = node.value !== null && node.value !== undefined && String(node.value).toLowerCase().includes(term);
-
-          if (labelMatch || valMatch) {
-            matched.push({
-              id: node.id,
-              label: node.label,
-              value: node.value,
-              checked: node.checked,
-              expanded: node.children && node.children.length > 0 ? true : node.expanded,
-              excelLoc: node.excelLoc,
-              opasVersions: node.opasVersions,
-              isAuxiliary: node.isAuxiliary,
-              isComplexType: node.isComplexType,
-              isFolder: node.isFolder,
-              children: node.children || []
-            });
-          } else {
-            let matchingChildren = [];
-            if (node.children && node.children.length > 0) {
-              matchingChildren = matchSubtree(node.children);
-            }
-
-            if (matchingChildren.length > 0) {
-              matched.push({
-                id: node.id,
-                label: node.label,
-                value: node.value,
-                checked: node.checked,
-                expanded: true,
-                excelLoc: node.excelLoc,
-                opasVersions: node.opasVersions,
-                isAuxiliary: node.isAuxiliary,
-                isComplexType: node.isComplexType,
-                isFolder: node.isFolder,
-                children: matchingChildren
-              });
-            }
-          }
-        });
-        return matched;
-      }
-
-      return matchSubtree(nodes);
-    }
-
-    function refreshVirtualTree() {
-      const file = getActiveFile();
-      const spacer = document.getElementById("virtual-tree-spacer");
-      const content = document.getElementById("virtual-tree-content");
-      const badge = document.getElementById("row-count-badge");
-
-      if (!file || !file.treeData || file.treeData.length === 0) {
-        spacer.style.height = "0px";
-        content.style.transform = "none";
-        content.innerHTML = `
-          <div class="empty-placeholder">
-            <i class="fa-solid fa-file-excel" style="font-size: 2.2rem; color: var(--accent-primary);"></i>
-            <span>No file open. Click "File > Open File(s)..." above to load an Excel workbook (.xlsx, .xls, .csv), JSON, or YAML.</span>
-          </div>
-        `;
-        badge.textContent = "";
-        return;
-      }
-
-      const searchTerm = document.getElementById("search-input").value.toLowerCase().trim();
-      let sourceTree = file.treeData;
-
-      if (searchTerm) {
-        sourceTree = filterTreeWithSearch(file.treeData, searchTerm);
-      }
-
-      virtualRowsList = flattenVisibleNodes(sourceTree, selectedProfileFilter, searchTerm, selectedVersionScope, 0);
-      
-      const totalHeight = virtualRowsList.length * ROW_HEIGHT;
-      spacer.style.height = `${totalHeight}px`;
-      badge.textContent = `${virtualRowsList.length.toLocaleString()} nodes`;
-
-      handleVirtualScroll();
-    }
-
-    function handleVirtualScroll() {
-      if (currentViewMode !== "tree_view") return;
-
-      const viewport = document.getElementById("virtual-tree-viewport");
-      const content = document.getElementById("virtual-tree-content");
-
-      if (virtualRowsList.length === 0) {
-        content.innerHTML = "";
-        return;
-      }
-
-      const scrollTop = viewport.scrollTop;
-      const viewportHeight = viewport.clientHeight;
-
-      const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 8);
-      const endIndex = Math.min(virtualRowsList.length, Math.ceil((scrollTop + viewportHeight) / ROW_HEIGHT) + 8);
-
-      const topOffset = startIndex * ROW_HEIGHT;
-      content.style.transform = `translateY(${topOffset}px)`;
-
-      let html = "";
-      for (let i = startIndex; i < endIndex; i++) {
-        const item = virtualRowsList[i];
-        const paddingLeft = item.depth * 18 + 6;
-        const isReq = isRequirementKey(item.label);
-        const hasValueContent = item.value !== null && item.value !== undefined && String(item.value).trim() !== "";
-        const displayVal = hasValueContent ? String(item.value) : "";
-        const isAnonymousItem = item.label === "";
-        const showInputBox = isEditMode || hasValueContent || isReq;
-
-        html += `
-          <div class="virtual-row ${!item.checked ? 'node-hidden' : ''}" style="padding-left: ${paddingLeft}px;" data-id="${item.id}">
-            <span class="toggle-icon ${!item.hasChildren ? 'hidden-icon' : ''}" onclick="toggleVirtualExpand('${item.id}')">
-              <i class="fa-solid ${item.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i>
-            </span>
-            <div class="visibility-toggle ${item.checked ? 'visible' : 'hidden-node'}" onclick="toggleVirtualVisibility('${item.id}')">
-              <i class="fa-solid ${item.checked ? 'fa-eye' : 'fa-eye-slash'}"></i>
-            </div>
-            ${item.isFolder ? `<i class="fa-solid ${item.expanded ? 'fa-folder-open' : 'fa-folder'} folder-icon"></i>` : ''}
-            ${!isAnonymousItem ? `<span class="node-label ${item.isFolder ? 'folder-label' : ''}" title="${item.label}">${item.label}</span>` : ''}
-            ${(!item.hasChildren && showInputBox) || hasValueContent ? `
-              ${!isAnonymousItem ? `<span class="node-colon">:</span>` : ''}
-              <input 
-                type="text" 
-                class="node-value-input" 
-                value="${displayVal}" 
-                placeholder="${isReq ? 'Mandatory / Recommended...' : 'value'}"
-                ${isReq ? 'list="requirement-options-list"' : ''}
-                onchange="updateNodeValue('${item.targetId}', this.value)"
-              />
-            ` : ''}
-            <div class="node-actions">
-              <button class="action-btn" title="Edit Label" onclick="editNodeLabel('${item.id}')"><i class="fa-solid fa-pen"></i></button>
-              <button class="action-btn add-child-btn" title="Add Child Node" onclick="addChildNode('${item.id}')"><i class="fa-solid fa-plus"></i></button>
-              <button class="action-btn delete-btn" title="Delete Node" onclick="deleteNode('${item.id}')"><i class="fa-regular fa-trash-can"></i></button>
-            </div>
-          </div>
-        `;
-      }
-
-      content.innerHTML = html;
-    }
-
-    function handleSearchInput(val) {
-      clearTimeout(searchDebounceTimer);
-      searchDebounceTimer = setTimeout(() => {
-        if (currentViewMode === "compare_view") {
-          filterComparisonMatrixTable(val);
-        } else {
-          refreshVirtualTree();
-        }
-      }, 120);
-    }
-
-    function toggleVirtualExpand(nodeId) {
-      const file = getActiveFile();
-      const node = findNodeById(file.treeData, nodeId);
-      if (node) {
-        node.expanded = !node.expanded;
-        refreshVirtualTree();
-      }
-    }
-
-    function toggleVirtualVisibility(nodeId) {
-      if (!isEditMode) return;
-      const file = getActiveFile();
-      const node = findNodeById(file.treeData, nodeId);
-      if (node) {
-        const newState = !node.checked;
-        setSubtreeVisibility(node, newState);
-        if (newState) ensureParentsVisible(file.treeData, nodeId);
-
-        if (!isPaneHidden) updateOutputFromTree();
-        refreshVirtualTree();
-      }
-    }
-
-    function refreshView() {
-      if (currentViewMode === "compare_view") {
-        renderComparisonInTreePane();
-      } else {
-        refreshVirtualTree();
-      }
-    }
-
-    function filterComparisonMatrixTable(searchTerm) {
-      const term = searchTerm.toLowerCase().trim();
-      const rows = document.querySelectorAll(".compare-table tbody tr");
-
-      rows.forEach(row => {
-        if (!term) {
-          row.style.display = "";
-          return;
-        }
-
-        const textContent = row.textContent.toLowerCase();
-        const inputs = row.querySelectorAll("input");
-        let inputMatch = false;
-        inputs.forEach(inp => {
-          if (inp.value.toLowerCase().includes(term)) inputMatch = true;
-        });
-
-        row.style.display = (textContent.includes(term) || inputMatch) ? "" : "none";
-      });
-    }
-
-    function renderComparisonInTreePane() {
-      const container = document.getElementById("virtual-tree-content");
-      const spacer = document.getElementById("virtual-tree-spacer");
-      const badge = document.getElementById("row-count-badge");
-      const file = getActiveFile();
-
-      spacer.style.height = "0px";
-      container.style.transform = "none";
-      badge.textContent = "";
-
-      if (!file || !file.treeData || file.treeData.length === 0) {
-        container.innerHTML = `
-          <div class="empty-placeholder">
-            <i class="fa-solid fa-code-compare" style="font-size: 2.2rem; color: var(--accent-primary);"></i>
-            <span>No active specification file open to view comparison matrix.</span>
-          </div>
-        `;
-        return;
-      }
-
-      if (selectedCompareProfiles.length === 0) {
-        container.innerHTML = `<div style="color: var(--text-muted); padding: 15px;">Please select at least one profile from the dropdown above to compare.</div>`;
-        return;
-      }
-
-      const matrixRows = buildMultiProfileComparisonRows(file.treeData, selectedCompareProfiles, selectedVersionScope);
-
-      if (matrixRows.length === 0) {
-        container.innerHTML = `<div style="color: var(--text-muted); padding: 15px;">No occurrences found for selected profiles / version.</div>`;
-        return;
-      }
-
-      let html = `
-        <div class="compare-table-wrapper">
-          <table class="compare-table">
-            <thead>
-              <tr>
-                <th style="min-width: 200px;">Property / Node</th>
-                <th style="min-width: 100px; text-align: center;">O-PAS Ver</th>
-                <th style="min-width: 160px;">Requirement Attribute</th>
-      `;
-
-      selectedCompareProfiles.forEach(prof => {
-        html += `<th style="min-width: 140px;">${prof}</th>`;
-      });
-
-      html += `
-              </tr>
-            </thead>
-            <tbody>
-      `;
-
-      matrixRows.forEach(row => {
-        const vBadges = [];
-        if (row.versions?.v1) vBadges.push(`<span class="version-tag">V1</span>`);
-        if (row.versions?.v2) vBadges.push(`<span class="version-tag">V2</span>`);
-        if (row.versions?.v3) vBadges.push(`<span class="version-tag">V3</span>`);
-        const versionsCell = vBadges.length > 0 ? vBadges.join("") : `<span class="diff-absent">-</span>`;
-
-        html += `
-          <tr>
-            <td><span class="path-code-last" title="${row.fullPath}">${row.propertyName}</span></td>
-            <td style="text-align: center;">${versionsCell}</td>
-            <td><code>${row.attributeName}</code></td>
-        `;
-
-        selectedCompareProfiles.forEach(prof => {
-          const profData = row.profilesData[prof];
-          if (profData) {
-            const val = profData.val !== undefined && profData.val !== null ? String(profData.val) : "";
-            html += `
-              <td>
-                <input type="text" class="matrix-input" value="${val}" list="requirement-options-list" onchange="updateNodeValue('${profData.id}', this.value)" />
-              </td>
-            `;
-          } else {
-            html += `<td><span class="diff-absent">Not Present</span></td>`;
-          }
-        });
-
-        html += `</tr>`;
-      });
-
-      html += `</tbody></table></div>`;
-      container.innerHTML = html;
-    }
-
-    function buildMultiProfileComparisonRows(treeNodes, activeProfiles, versionScope = "__ALL__") {
-      const rows = [];
-
-      function traverse(nodeList, ancestorPath = []) {
-        nodeList.forEach(node => {
-          if (!nodeMatchesVersionScope(node, versionScope)) return;
-
-          const currentPath = [...ancestorPath, node.label];
-
-          if (node.children && node.children.length > 0) {
-            const matchingChildren = node.children.filter(c => activeProfiles.includes(c.label));
-
-            if (matchingChildren.length > 0) {
-              const attrsMap = {};
-
-              matchingChildren.forEach(childProf => {
-                const profName = childProf.label;
-                if (childProf.children && childProf.children.length > 0) {
-                  childProf.children.forEach(attr => {
-                    if (!attrsMap[attr.label]) attrsMap[attr.label] = {};
-                    attrsMap[attr.label][profName] = { val: attr.value, id: attr.id };
-                  });
-                } else {
-                  if (!attrsMap["Value"]) attrsMap["Value"] = {};
-                  attrsMap["Value"][profName] = { val: childProf.value, id: childProf.id };
-                }
-              });
-
-              Object.keys(attrsMap).forEach(attrName => {
-                rows.push({
-                  fullPath: currentPath.join(" > "),
-                  propertyName: node.label,
-                  attributeName: attrName,
-                  versions: node.opasVersions,
-                  profilesData: attrsMap[attrName]
-                });
-              });
-            }
-
-            traverse(node.children, currentPath);
-          }
-        });
-      }
-
-      traverse(treeNodes, []);
-      return rows;
-    }
-
-    function createNewFileTab(fileName, treeStructure, format = 'yaml', rawZipInstance = null, sheetNameMap = {}) {
-      const fileId = "file_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4);
-      const newFile = {
-        id: fileId,
-        name: fileName,
-        treeData: treeStructure,
-        format: format,
-        zip: rawZipInstance,
-        sheetMap: sheetNameMap,
-        modifiedCells: {}
-      };
-
-      filesState.push(newFile);
-      switchToFileTab(fileId);
-    }
-
-    function isActiveFileExcel() {
-      const file = getActiveFile();
-      return !!(file && (file.zip || /\.xlsx$|\.xls$|\.csv$/i.test(file.name || '')));
-    }
-
-    function switchToFileTab(fileId) {
-      activeFileId = fileId;
-      const currentFile = getActiveFile();
-
-      if (currentFile) {
-        if (isActiveFileExcel()) {
-          document.body.classList.add("excel-file-active");
-        } else {
-          document.body.classList.remove("excel-file-active");
-        }
-
-        renderTabsUI();
-        updateSheetDropdown(currentFile);
-        switchFormat(currentFile.format, false);
-        document.getElementById("search-input").value = "";
-        updateProfileDropdowns();
-        refreshView();
-        if (!isPaneHidden) updateOutputFromTree();
-      }
-    }
-
-    function updateSheetDropdown(file) {
-      const group = document.getElementById("sheet-selector-group");
-      const select = document.getElementById("excel-sheet-select");
-
-      const sheetNames = Object.keys(file?.sheetMap || {});
-      if (sheetNames.length > 1) {
-        group.style.display = "flex";
-        select.innerHTML = "";
-        sheetNames.forEach(sheetName => {
-          const opt = document.createElement("option");
-          opt.value = sheetName;
-          opt.textContent = sheetName;
-          select.appendChild(opt);
-        });
-      } else {
-        group.style.display = "none";
-      }
-    }
-
-    async function switchExcelSheet(sheetName) {
-      const file = getActiveFile();
-      if (!file || !file.zip) return;
-
-      showLoading(true, "Switching Sheet...");
-      setTimeout(async () => {
-        try {
-          const sheetXmlPath = file.sheetMap[sheetName];
-          if (sheetXmlPath) {
-            const xmlContent = await file.zip.file(sheetXmlPath).async("string");
-            
-            let sharedStrings = [];
-            const sharedStringsFile = file.zip.file("xl/sharedStrings.xml");
-            if (sharedStringsFile) {
-              const ssXml = await sharedStringsFile.async("string");
-              sharedStrings = parseSharedStringsXml(ssXml);
-            }
-
-            let styleIndents = [];
-            const stylesFile = file.zip.file("xl/styles.xml");
-            if (stylesFile) {
-              const stylesXml = await stylesFile.async("string");
-              styleIndents = parseStylesIndentMap(stylesXml);
-            }
-
-            file.treeData = parseSheetXmlToTreeData(xmlContent, sheetName, sharedStrings, styleIndents);
-            setExpandedRecursive(file.treeData, false);
-            updateProfileDropdowns();
-            refreshView();
-            if (!isPaneHidden) updateOutputFromTree();
-          }
-        } catch (err) {
-          alert(`Error switching sheet: ${err.message}`);
-        } finally {
-          showLoading(false);
-        }
-      }, 20);
-    }
-
-    function closeFileTab(e, fileId) {
-      e.stopPropagation();
-      filesState = filesState.filter(f => f.id !== fileId);
-      
-      if (filesState.length === 0) {
-        activeFileId = null;
-        renderTabsUI();
-        document.getElementById("sheet-selector-group").style.display = "none";
-        refreshView();
-        document.getElementById("code-output").textContent = "";
-        return;
-      }
-
-      if (activeFileId === fileId) {
-        switchToFileTab(filesState[filesState.length - 1].id);
-      } else {
-        renderTabsUI();
-      }
-    }
-
-    function renderTabsUI() {
-      const tabsBar = document.getElementById("file-tabs-bar");
-      tabsBar.innerHTML = "";
-
-      if (filesState.length > 1) {
-        tabsBar.classList.add("visible-bar");
-        document.body.classList.add("multi-file-active");
-      } else {
-        tabsBar.classList.remove("visible-bar");
-        document.body.classList.remove("multi-file-active");
-      }
-
-      filesState.forEach(file => {
-        const tabEl = document.createElement("div");
-        tabEl.className = `file-tab ${file.id === activeFileId ? 'active' : ''}`;
-        tabEl.onclick = () => switchToFileTab(file.id);
-
-        let iconClass = "fa-file-lines";
-        if (file.name.match(/\.(xlsx|xls|csv)$/i)) iconClass = "fa-file-excel";
-        else if (file.name.endsWith(".json")) iconClass = "fa-code";
-
-        tabEl.innerHTML = `
-          <i class="fa-solid ${iconClass}"></i>
-          <span>${file.name}</span>
-          <i class="fa-solid fa-xmark tab-close-btn" onclick="closeFileTab(event, '${file.id}')"></i>
-        `;
-        tabsBar.appendChild(tabEl);
-      });
-    }
-
-    function getActiveFile() {
-      return filesState.find(f => f.id === activeFileId);
-    }
-
-    function triggerFileInput() {
-      document.getElementById("file-input").click();
-    }
-
+    function triggerFileInput() { document.getElementById("file-input").click(); }
     function handleFileSelect(event) {
       const files = event.target.files;
       if (!files || files.length === 0) return;
-      
-      showLoading(true, "Opening Workbook...");
-      setTimeout(() => {
-        Array.from(files).forEach(file => processUploadedFile(file));
-        event.target.value = "";
-        showLoading(false);
-      }, 20);
-    }
-
-    function parseStylesIndentMap(stylesXmlString) {
-      try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(stylesXmlString, "application/xml");
-        const cellXfs = doc.getElementsByTagName("cellXfs")[0];
-        if (!cellXfs) return [];
-        const xfNodes = cellXfs.getElementsByTagName("xf");
-        const indents = [];
-        for (let i = 0; i < xfNodes.length; i++) {
-          const alignment = xfNodes[i].getElementsByTagName("alignment")[0];
-          let indentVal = 0;
-          if (alignment && alignment.hasAttribute("indent")) {
-            indentVal = parseInt(alignment.getAttribute("indent"), 10) || 0;
-          }
-          indents[i] = indentVal;
-        }
-        return indents;
-      } catch (err) {
-        return [];
-      }
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        await parseAndOpenExcelBuffer(e.target.result, files[0].name);
+      };
+      reader.readAsArrayBuffer(files[0]);
     }
 
     async function parseAndOpenExcelBuffer(buffer, fileName, preferredSheetName = null) {
@@ -2106,11 +294,8 @@
 
       const sheets = wbDoc.getElementsByTagName("sheet");
       const rels = relsDoc.getElementsByTagName("Relationship");
-
       const relMap = {};
-      for (let i = 0; i < rels.length; i++) {
-        relMap[rels[i].getAttribute("Id")] = "xl/" + rels[i].getAttribute("Target");
-      }
+      for (let i = 0; i < rels.length; i++) relMap[rels[i].getAttribute("Id")] = "xl/" + rels[i].getAttribute("Target");
 
       const sheetMap = {};
       let firstSheetName = "";
@@ -2121,107 +306,37 @@
         if (i === 0) firstSheetName = name;
       }
 
-      let chosenSheetName = firstSheetName;
-      if (preferredSheetName && sheetMap[preferredSheetName]) {
-        chosenSheetName = preferredSheetName;
-      } else if (preferredSheetName) {
-        const found = Object.keys(sheetMap).find(s => s.toLowerCase().includes(preferredSheetName.toLowerCase()));
-        if (found) chosenSheetName = found;
-      }
-
+      let chosenSheetName = preferredSheetName && sheetMap[preferredSheetName] ? preferredSheetName : firstSheetName;
       const chosenSheetXmlPath = sheetMap[chosenSheetName];
       const xmlContent = await zip.file(chosenSheetXmlPath).async("string");
 
       let sharedStrings = [];
-      const sharedStringsFile = zip.file("xl/sharedStrings.xml");
-      if (sharedStringsFile) {
-        const ssXml = await sharedStringsFile.async("string");
-        sharedStrings = parseSharedStringsXml(ssXml);
-      }
-
-      let styleIndents = [];
-      const stylesFile = zip.file("xl/styles.xml");
-      if (stylesFile) {
-        const stylesXml = await stylesFile.async("string");
-        styleIndents = parseStylesIndentMap(stylesXml);
-      }
-
-      const convertedTree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings, styleIndents);
-      setExpandedRecursive(convertedTree, false);
-      createNewFileTab(fileName, convertedTree, 'yaml', zip, sheetMap);
-
-      const sheetSelect = document.getElementById("excel-sheet-select");
-      if (sheetSelect && sheetSelect.querySelector(`option[value="${chosenSheetName}"]`)) {
-        sheetSelect.value = chosenSheetName;
-      }
-    }
-
-    function processUploadedFile(file) {
-      const fileName = file.name;
-      const isExcel = /\.xlsx$/i.test(fileName);
-
-      if (isExcel) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          try {
-            await parseAndOpenExcelBuffer(e.target.result, fileName);
-          } catch (err) {
-            alert(`Error reading Excel file ${fileName}: ${err.message}`);
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      } else {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const content = e.target.result;
-          let parsed = null;
-          let format = fileName.endsWith(".json") ? "json" : "yaml";
-
-          try {
-            if (format === 'yaml') {
-              parsed = window.jsyaml ? jsyaml.load(content) : JSON.parse(content);
-            } else {
-              parsed = JSON.parse(content);
-            }
-
-            if (typeof parsed === 'object' && parsed !== null) {
-              const convertedTree = objectToTreeData(parsed, []);
-              setExpandedRecursive(convertedTree, false);
-              createNewFileTab(fileName, convertedTree, format, null);
-            }
-          } catch (err) {
-            alert(`Error parsing ${fileName}: ${err.message}`);
-          }
-        };
-        reader.readAsText(file);
-      }
-    }
-
-    function parseSharedStringsXml(xmlString) {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(xmlString, "application/xml");
-      const siElements = doc.getElementsByTagName("si");
-      const strings = [];
-      for (let i = 0; i < siElements.length; i++) {
-        const tElements = siElements[i].getElementsByTagName("t");
-        let fullText = "";
-        for (let j = 0; j < tElements.length; j++) {
-          fullText += tElements[j].textContent || "";
+      const ssFile = zip.file("xl/sharedStrings.xml");
+      if (ssFile) {
+        const ssXml = await ssFile.async("string");
+        const ssDoc = parser.parseFromString(ssXml, "application/xml");
+        const siList = ssDoc.getElementsByTagName("si");
+        for (let i = 0; i < siList.length; i++) {
+          const tList = siList[i].getElementsByTagName("t");
+          let txt = "";
+          for (let j = 0; j < tList.length; j++) txt += tList[j].textContent || "";
+          sharedStrings.push(txt);
         }
-        strings.push(fullText);
       }
-      return strings;
+
+      const tree = parseSheetXmlToTreeData(xmlContent, chosenSheetName, sharedStrings);
+      filesState = [{ id: "f1", name: fileName, treeData: tree, format: "yaml" }];
+      activeFileId = "f1";
+      refreshVirtualTree();
     }
 
     function colLettersToIndex(letters) {
       let index = 0;
-      for (let i = 0; i < letters.length; i++) {
-        index = index * 26 + (letters.charCodeAt(i) - 64);
-      }
+      for (let i = 0; i < letters.length; i++) index = index * 26 + (letters.charCodeAt(i) - 64);
       return index - 1;
     }
 
-    function parseSheetXmlToTreeData(sheetXmlString, sheetName, sharedStrings = [], styleIndents = []) {
+    function parseSheetXmlToTreeData(sheetXmlString, sheetName, sharedStrings = []) {
       const parser = new DOMParser();
       const doc = parser.parseFromString(sheetXmlString, "application/xml");
       const rowElements = doc.getElementsByTagName("row");
@@ -2233,7 +348,6 @@
         const cellElements = rowEl.getElementsByTagName("c");
         const rowValues = [];
         const cellRefMap = [];
-        const cellIndents = [];
 
         for (let c = 0; c < cellElements.length; c++) {
           const cellEl = cellElements[c];
@@ -2241,89 +355,50 @@
           const colLetters = cellRef.replace(/[0-9]/g, '');
           const colIdx = colLettersToIndex(colLetters);
           const cellType = cellEl.getAttribute("t");
-          const styleIdx = parseInt(cellEl.getAttribute("s") || "-1", 10);
 
           let val = "";
           const vEl = cellEl.getElementsByTagName("v")[0];
           const isEl = cellEl.getElementsByTagName("is")[0];
 
           if (cellType === "s" && vEl) {
-            const ssIndex = parseInt(vEl.textContent, 10);
-            val = sharedStrings[ssIndex] || "";
+            val = sharedStrings[parseInt(vEl.textContent, 10)] || "";
           } else if (cellType === "inlineStr" && isEl) {
-            const tElements = isEl.getElementsByTagName("t");
-            if (tElements.length > 0) {
-              for (let t = 0; t < tElements.length; t++) {
-                val += tElements[t].textContent || "";
-              }
-            } else {
-              val = isEl.textContent || "";
-            }
+            val = isEl.textContent || "";
           } else if (vEl) {
             val = vEl.textContent || "";
           }
 
           rowValues[colIdx] = val;
           cellRefMap[colIdx] = cellRef;
-          cellIndents[colIdx] = (styleIdx >= 0 && styleIndents[styleIdx]) ? styleIndents[styleIdx] : 0;
         }
 
-        rawRows[rIndex] = {
-          values: rowValues,
-          cellRefs: cellRefMap,
-          indents: cellIndents,
-          xmlRow: rIndex + 1
-        };
+        rawRows[rIndex] = { values: rowValues, cellRefs: cellRefMap, xmlRow: rIndex + 1 };
       }
 
       window.rawRows = rawRows;
-
       return buildTreeFrom2DMatrix(rawRows, sheetName);
     }
 
-    function findPropertyNodeDeep(nodeList, targetName) {
-      if (!nodeList || !targetName) return null;
-      const cleanTarget = targetName.trim().toLowerCase();
-      for (let node of nodeList) {
-        if (node.label.trim().toLowerCase() === cleanTarget) return node;
-        if (node.children && node.children.length > 0) {
-          const found = findPropertyNodeDeep(node.children, targetName);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-
+    // =========================================================================
+    // UNIVERSAL CLEAN PARSER ENGINE (مطابق 100% لبايثون)
+    // =========================================================================
     function buildTreeFrom2DMatrix(rawRows, sheetName) {
       if (!rawRows || rawRows.length === 0) return [];
-
       let nodeCount = 0;
-      function createNode(label, value = null, isExpanded = false, loc = null, versions = null, isAux = false, isFolder = false) {
+
+      function createNode(label, value = null, isFolder = false) {
         return {
           id: "n_" + (++nodeCount),
           label: String(label).trim(),
-          value: value !== null ? parseTypedValue(String(value)) : null,
+          value: value !== null ? String(value).trim() : null,
           checked: true,
           expanded: false,
-          excelLoc: loc,
-          opasVersions: versions || { v1: false, v2: false, v3: false },
-          isAuxiliary: isAux,
-          isComplexType: isAux,
           isFolder: isFolder,
           children: []
         };
       }
 
-      function parseVersionFlags(line) {
-        const isY = (val) => String(val || "").trim().toUpperCase() === 'Y' || String(val || "").trim() === '1';
-        return {
-          v1: isY(line[8]),
-          v2: isY(line[9]),
-          v3: isY(line[10])
-        };
-      }
-
-      function mapReqCodeToText(code) {
+      function mapReq(code) {
         const c = String(code || "").trim().toUpperCase();
         if (c === 'M') return 'Mandatory';
         if (c === 'R') return 'Recommended';
@@ -2332,1240 +407,197 @@
         return 'None';
       }
 
-      function getCellMeta(rowObj, colIdx) {
-        if (!rowObj) return null;
-        return {
-          sheet: sheetName,
-          cellRef: rowObj.cellRefs && rowObj.cellRefs[colIdx] ? rowObj.cellRefs[colIdx] : (indexToColLetters(colIdx) + rowObj.xmlRow),
-          row: rowObj.xmlRow,
-          col: colIdx
-        };
-      }
-
-      function attachProfileRequirements(parentNode, reqs, rowObj, versions) {
-        const profileDefs = [
-          { name: "OSM-Redfish", read: mapReqCodeToText(reqs[0]), write: mapReqCodeToText(reqs[1]), rCol: 2, wCol: 3 },
-          { name: "OSM-RedfishBMC", read: mapReqCodeToText(reqs[2]), write: mapReqCodeToText(reqs[3]), rCol: 4, wCol: 5 },
-          { name: "OSM-RedfishDCN", read: mapReqCodeToText(reqs[4]), write: mapReqCodeToText(reqs[5]), rCol: 6, wCol: 7 }
+      function attachProfiles(node, line) {
+        const pDefs = [
+          { name: "OSM-Redfish", r: mapReq(line[2]), w: mapReq(line[3]) },
+          { name: "OSM-RedfishBMC", r: mapReq(line[4]), w: mapReq(line[5]) },
+          { name: "OSM-RedfishDCN", r: mapReq(line[6]), w: mapReq(line[7]) }
         ];
 
-        profileDefs.forEach(p => {
-          if (p.read !== 'None' || p.write !== 'None') {
-            let profNode = parentNode.children.find(c => c.label === p.name);
-            if (!profNode) {
-              profNode = createNode(p.name, null, false, getCellMeta(rowObj, p.rCol), versions);
-              parentNode.children.push(profNode);
-            }
-            if (p.read !== 'None') {
-              profNode.children.push(createNode("ReadRequirement", p.read, false, getCellMeta(rowObj, p.rCol), versions));
-            }
-            if (p.write !== 'None') {
-              profNode.children.push(createNode("WriteRequirement", p.write, false, getCellMeta(rowObj, p.wCol), versions));
-            }
+        pDefs.forEach(p => {
+          if (p.r !== 'None' || p.w !== 'None') {
+            const pNode = createNode(p.name);
+            if (p.r !== 'None') pNode.children.push(createNode("ReadRequirement", p.r));
+            if (p.w !== 'None') pNode.children.push(createNode("WriteRequirement", p.w));
+            node.children.push(pNode);
           }
         });
       }
 
-      function attachSpecialRequirements(targetNode, specString, rowObj, versions) {
-        if (!specString || !targetNode) return;
-        const specs = parseSpecialReqs(specString);
-        
-        specs.forEach(s => {
-          if (s.key === "MinCount") {
-            let membersNode = targetNode.children.find(c => c.label.trim().toLowerCase() === "members");
-            
-            if (!membersNode) {
-              membersNode = findPropertyNodeDeep(targetNode.children, "Members");
-            }
-
-            if (!membersNode) {
-              membersNode = createNode("Members", null, false, getCellMeta(rowObj, 0), versions);
-              targetNode.children.push(membersNode);
-            }
-            
-            if (!membersNode.children.some(c => c.label.toLowerCase() === "mincount")) {
-              membersNode.children.push(createNode("MinCount", s.val, false, getCellMeta(rowObj, 12), versions));
-            }
-
-            const duplicateIndices = [];
-            targetNode.children.forEach((c, idx) => {
-              if (c !== membersNode && c.label.trim().toLowerCase() === "members") {
-                duplicateIndices.push(idx);
-                if (c.children && c.children.length > 0) {
-                  c.children.forEach(ch => {
-                    if (!membersNode.children.some(mCh => mCh.label.toLowerCase() === ch.label.toLowerCase())) {
-                      membersNode.children.push(ch);
-                    }
-                  });
-                }
-              }
-            });
-
-            for (let d = duplicateIndices.length - 1; d >= 0; d--) {
-              targetNode.children.splice(duplicateIndices[d], 1);
-            }
-          } else {
-            if (!targetNode.children.some(c => c.label.toLowerCase() === s.key.toLowerCase())) {
-              targetNode.children.push(createNode(s.key, s.val, false, getCellMeta(rowObj, 12), versions));
-            }
-          }
-        });
-      }
-
-      let profileNameNode = null;
-      let profilePurposeNode = null;
-      let schemasContainerNode = createNode("Schemas", null, false);
-
-      for (let r = 0; r < rawRows.length; r++) {
-        const rowObj = rawRows[r];
-        if (!rowObj) continue;
-        const row = rowObj.values || [];
-        const rowHeader = String(row[0] || "").trim();
-
-        const rowTypeZ = String(row[25] || "").trim();
-        if (rowTypeZ === 'Resource' || rowTypeZ === 'Collection') {
-          const curResName = String(row[26] || "").trim();
-          if (curResName) {
-            const schemaMeta = {
-              type: rowTypeZ,
-              resource: curResName,
-              version: String(row[27] || "").trim(),
-              description: String(row[28] || "").trim(),
-              longDescription: String(row[29] || "").trim() || String(row[28] || "").trim(),
-              path: String(row[30] || "").trim().split(/\s+/),
-              insertable: String(row[31] || "").trim(),
-              updatable: String(row[32] || "").trim(),
-              deletable: String(row[33] || "").trim(),
-              url: String(row[34] || "").trim(),
-              additionalResources: String(row[35] || "").trim()
-            };
-
-            let schemaNode = createNode(curResName, null, false, getCellMeta(rowObj, 26));
-            schemaNode.schemaMeta = schemaMeta;
-            schemaNode.children.push(createNode("Version", schemaMeta.version, false, getCellMeta(rowObj, 27)));
-            schemaNode.children.push(createNode("Description", schemaMeta.description, false, getCellMeta(rowObj, 28)));
-            schemaNode.children.push(createNode("LongDescription", schemaMeta.longDescription, false, getCellMeta(rowObj, 29)));
-            schemaNode.children.push(createNode("Path", schemaMeta.path.join(", "), false, getCellMeta(rowObj, 30)));
-            schemaNode.children.push(createNode("Insertable", schemaMeta.insertable, false, getCellMeta(rowObj, 31)));
-            schemaNode.children.push(createNode("Updatable", schemaMeta.updatable, false, getCellMeta(rowObj, 32)));
-            schemaNode.children.push(createNode("Deletable", schemaMeta.deletable, false, getCellMeta(rowObj, 33)));
-            schemaNode.children.push(createNode("Url", schemaMeta.url, false, getCellMeta(rowObj, 34)));
-
-            schemasContainerNode.children.push(schemaNode);
-          }
-        }
-
-        if (rowHeader === "ProfileName") {
-          profileNameNode = createNode("ProfileName", null, false, getCellMeta(rowObj, 0));
-          const p1 = String(row[2] || row[3] || "").trim();
-          const p2 = String(row[4] || row[5] || "").trim();
-          const p3 = String(row[6] || row[7] || "").trim();
-          if (p1) profileNameNode.children.push(createNode("OSM-Redfish", p1, false, getCellMeta(rowObj, row[2] ? 2 : 3)));
-          if (p2) profileNameNode.children.push(createNode("OSM-RedfishBMC", p2, false, getCellMeta(rowObj, row[4] ? 4 : 5)));
-          if (p3) profileNameNode.children.push(createNode("OSM-RedfishDCN", p3, false, getCellMeta(rowObj, row[6] ? 6 : 7)));
-        } else if (rowHeader === "ProfilePurpose") {
-          profilePurposeNode = createNode("ProfilePurpose", null, false, getCellMeta(rowObj, 0));
-          const purp1 = String(row[2] || row[3] || "").trim();
-          const purp2 = String(row[4] || row[5] || "").trim();
-          const purp3 = String(row[6] || row[7] || "").trim();
-          if (purp1) profilePurposeNode.children.push(createNode("OSM-Redfish", purp1, false, getCellMeta(rowObj, row[2] ? 2 : 3)));
-          if (purp2) profilePurposeNode.children.push(createNode("OSM-RedfishBMC", purp2, false, getCellMeta(rowObj, row[4] ? 4 : 5)));
-          if (purp3) profilePurposeNode.children.push(createNode("OSM-RedfishDCN", purp3, false, getCellMeta(rowObj, row[6] ? 6 : 7)));
-        }
-      }
-
-      const resourcesContainerNode = createNode("Resources", null, false);
-      let currentActiveFolder = null;
+      const rootNodes = [];
+      const resourcesNode = createNode("Resources", null, false);
+      rootNodes.push(resourcesNode);
 
       let i = 0;
       while (i < rawRows.length) {
         const rowObj = rawRows[i];
-        if (!rowObj) {
-          i++;
-          continue;
-        }
-
+        if (!rowObj) { i++; continue; }
         const line = rowObj.values || [];
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
-        if (folderMatch) {
-          const folderName = folderMatch[2].trim();
-          const folderVersions = parseVersionFlags(line);
-          currentActiveFolder = createNode(folderName, null, false, getCellMeta(rowObj, 0), folderVersions, false, true);
-          resourcesContainerNode.children.push(currentActiveFolder);
-          i++;
-          continue;
+        let isResource = false;
+        let resName = "";
+
+        if (colA.startsWith("6.5.")) { resName = colB; isResource = !!resName; }
+        else if (colA.startsWith("1.1.")) { resName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim(); isResource = !!resName; }
+
+        if (isResource && resName) {
+          const resRoot = createNode(resName, null, false);
+          resourcesNode.children.push(resRoot);
+
+          let r = i + 1;
+          let currentParentContainer = resRoot; // الأب الحاوي النشط
+
+          while (r < rawRows.length) {
+            const pObj = rawRows[r];
+            if (!pObj) { r++; continue; }
+            const pLine = pObj.values || [];
+            const rawColA = String(pLine[0] || "");
+            const trimmedColA = rawColA.trim();
+
+            if (trimmedColA.startsWith("1.1.") || trimmedColA.startsWith("6.5.")) break;
+            if (trimmedColA.toLowerCase() === "property" || trimmedColA.toLowerCase() === "(property)") { r++; continue; }
+
+            if (trimmedColA) {
+              const leadSpaces = rawColA.match(/^[\s\u00A0]*/)[0].length;
+              const node = createNode(trimmedColA);
+              attachProfiles(node, pLine);
+
+              if (leadSpaces === 0) {
+                // خاصية رئيسية (مثل MemoryLocation أو MemoryMedia)
+                resRoot.children.push(node);
+                currentParentContainer = node; // تثبيت هذا الكائن كأب لأي خصائص تتبعه وتحتوي على مسافات
+              } else {
+                // خاصية فرعية (مثل Channel, MemoryController, Slot, Socket)
+                // تُضاف مباشرة كـ Sibling موازٍ تحت الحاوية المفتوحة حالياً (currentParentContainer)
+                currentParentContainer.children.push(node);
+              }
+            }
+            r++;
+          }
+          i = r - 1;
         }
-
-        let isResourceTrigger = false;
-        let detectedResourceName = "";
-
-        if (colA.startsWith("6.5.")) {
-          detectedResourceName = colB.trim();
-          isResourceTrigger = !!detectedResourceName;
-        } else if (colA.startsWith("1.1.")) {
-          const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
-          if (candidateName) {
-            detectedResourceName = candidateName;
-            isResourceTrigger = true;
-          }
-        }
-
-        if (isResourceTrigger && detectedResourceName) {
-          const resVersions = parseVersionFlags(line);
-          const isAuxiliaryType = AUXILIARY_COMPLEX_TYPES.some(t => t.toLowerCase() === detectedResourceName.toLowerCase());
-          const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions, isAuxiliaryType);
-
-          let rowDescIdx = i + 1;
-          if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
-            const possibleDesc = String(rawRows[rowDescIdx].values[0] || "").trim();
-            if (
-              !possibleDesc.startsWith("1.1.") && 
-              !possibleDesc.startsWith("6.5.") && 
-              !possibleDesc.includes("Profile") && 
-              !possibleDesc.startsWith("Table ") && 
-              possibleDesc.toLowerCase() !== "property" && 
-              possibleDesc.toLowerCase() !== "(property)"
-            ) {
-              resourceRoot.children.push(createNode("Purpose", possibleDesc, false, getCellMeta(rawRows[rowDescIdx], 0), resVersions));
-            }
-          }
-
-          let rIndex = i + 1;
-          let cur_target_container = resourceRoot; 
-
-          // =========================================================================
-          // UNIVERSAL STACK ENGINE: منطق المكدس العام الخالي من أي استثناء يدوي
-          // =========================================================================
-          let stack = [{ node: cur_target_container, depth: -1 }];
-          let isParsingEnumTable = false;
-          let currentEnumContainer = null;
-
-          function resetStack() {
-            stack = [{ node: cur_target_container, depth: -1 }];
-          }
-
-          while (rIndex < rawRows.length) {
-            const pRowObj = rawRows[rIndex];
-            if (!pRowObj) {
-              rIndex++;
-              continue;
-            }
-
-            const pLine = pRowObj.values || [];
-            const pColA = String(pLine[0] || "").replace(/[\r\n\x00-\x1F\x7F]/g, '');
-            const pColB = String(pLine[1] || "").replace(/[\r\n\x00-\x1F\x7F]/g, '');
-            const pColC = String(pLine[2] || "").trim();
-            const specialReqsRaw = String(pLine[12] || "").trim();
-            const rowVersions = parseVersionFlags(pLine);
-
-            const pColATrim = pColA.trim();
-            const pColATrimLower = pColATrim.toLowerCase();
-            const pColBTrim = pColB.trim();
-            const pColBTrimLower = pColBTrim.toLowerCase();
-
-            // Skip empty marker rows
-            if (pColATrimLower === "f" && !pColBTrim) {
-              rIndex++;
-              continue;
-            }
-
-            // Skip URI section header rows
-            if (/(?:uris|uris:)$/i.test(pColATrim)) {
-              rIndex++;
-              continue;
-            }
-
-            // Multi-URI collection logic
-            if (pColATrim.includes("/redfish/v1/")) {
-              let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
-              if (!uriNode) {
-                uriNode = createNode(`${detectedResourceName} URIs`, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                resourceRoot.children.push(uriNode);
-              }
-
-              const uriLines = pColATrim.split(/[\r\n]+/).map(u => u.trim()).filter(u => u.includes("/redfish/v1/"));
-              uriLines.forEach(uStr => {
-                const alreadyExists = uriNode.children.some(c => c.value === uStr);
-                if (!alreadyExists) {
-                  const uriIndex = uriNode.children.length + 1;
-                  uriNode.children.push(createNode(`URI [${uriIndex}]`, uStr, false, getCellMeta(pRowObj, 0), rowVersions));
-                }
-              });
-
-              rIndex++;
-              continue;
-            }
-
-            // Terminate property loop on next section or conditional block
-            if (
-              pColATrim.startsWith("1.1.") || 
-              pColATrim.startsWith("6.5.") || 
-              pColATrimLower.includes("conditional") || 
-              pColATrimLower.includes("extrareq")
-            ) {
-              break;
-            }
-
-            // Table Boundaries: Only create sub-containers for actual variant tables (e.g. IPv4/IPv6)
-            if (/^Table\s+\d+:/i.test(pColATrim)) {
-              if (pColATrimLower.includes("values")) {
-                isParsingEnumTable = true;
-                const lastNode = stack.length > 1 ? stack[stack.length - 1].node : null;
-                if (lastNode && lastNode !== cur_target_container) {
-                  currentEnumContainer = lastNode.children.find(c => c.label === "Values");
-                  if (!currentEnumContainer) {
-                    currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    lastNode.children.push(currentEnumContainer);
-                  }
-                }
-              } else {
-                isParsingEnumTable = false;
-                currentEnumContainer = null;
-                
-                let subTableName = pColATrim.replace(/^Table\s+\d+:\s*/i, "").trim();
-                if (subTableName.toLowerCase().includes("profile map for")) {
-                  subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
-                }
-
-                const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
-                                       /\(ipv[46]\)/i.test(subTableName) ||
-                                       (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
-
-                if (isVariantTable) {
-                  let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
-                  if (!subGroup) {
-                    subGroup = createNode(subTableName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    resourceRoot.children.push(subGroup);
-                  }
-                  cur_target_container = subGroup;
-                } else {
-                  cur_target_container = resourceRoot;
-                }
-
-                resetStack();
-              }
-              rIndex++;
-              continue;
-            }
-
-            // Shaded sub-object variant headers (e.g. IPAddress (IPv4))
-            if (
-              (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
-              !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
-            ) {
-              isParsingEnumTable = false;
-              let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === pColATrimLower);
-              if (!subGroup) {
-                subGroup = createNode(pColATrim, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                resourceRoot.children.push(subGroup);
-              }
-              cur_target_container = subGroup;
-              resetStack();
-              rIndex++;
-              continue;
-            }
-
-            // Header row of Enum Table (String | Description)
-            if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
-              isParsingEnumTable = true;
-              const lastNode = stack.length > 1 ? stack[stack.length - 1].node : null;
-              if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
-                currentEnumContainer = lastNode.children.find(c => c.label === "Values");
-                if (!currentEnumContainer) {
-                  currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                  lastNode.children.push(currentEnumContainer);
-                }
-              }
-              rIndex++;
-              continue;
-            }
-
-            // Parse Enum value entries (EUI, UUID, etc.)
-            if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
-              const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
-              currentEnumContainer.children.push(valNode);
-              rIndex++;
-              continue;
-            }
-
-            // Skip table labels, profile repeated headers
-            if (
-              pColATrimLower === "property" ||
-              pColATrimLower === "(property)" ||
-              /\([vV]?[0-9]+[_\.0-9a-zA-Z]*\)/.test(pColATrim) || 
-              pColBTrim === "Profile" || 
-              pColC.trim() === "Profile" || 
-              pColATrim === "ProfileName" || 
-              pColATrim === "ProfilePurpose" ||
-              rIndex === rowDescIdx
-            ) {
-              rIndex++;
-              continue;
-            }
-
-            const reqs = [pLine[2], pLine[3], pLine[4], pLine[5], pLine[6], pLine[7]];
-
-            if (pColA === "ResourceRequirement") {
-              attachProfileRequirements(cur_target_container, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(cur_target_container, specialReqsRaw, pRowObj, rowVersions);
-            } else if (pColA === "Resource MinVersion") {
-              const minVersionNode = createNode("MinVersion", null, false, getCellMeta(pRowObj, 0), rowVersions);
-              const minVers = [
-                { prof: "OSM-Redfish", ver: pLine[2], col: 2 },
-                { prof: "OSM-RedfishBMC", ver: pLine[4], col: 4 },
-                { prof: "OSM-RedfishDCN", ver: pLine[6], col: 6 }
-              ];
-              minVers.forEach(mv => {
-                if (mv.ver && String(mv.ver).trim()) {
-                  minVersionNode.children.push(createNode(mv.prof, String(mv.ver).trim(), false, getCellMeta(pRowObj, mv.col), rowVersions));
-                }
-              });
-              if (minVersionNode.children.length > 0) cur_target_container.children.push(minVersionNode);
-            } else if (pColATrim && !pColATrim.startsWith("Profile")) {
-
-              let effectiveLabel = pColATrim;
-              let explicitParent = null;
-
-              if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
-                const dotSegments = effectiveLabel.split(".");
-                let currentContext = cur_target_container;
-                for (let d = 0; d < dotSegments.length - 1; d++) {
-                  const seg = dotSegments[d].trim();
-                  let segNode = currentContext.children.find(c => c.label.toLowerCase() === seg.toLowerCase());
-                  if (!segNode) {
-                    segNode = createNode(seg, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    currentContext.children.push(segNode);
-                  }
-                  currentContext = segNode;
-                }
-                explicitParent = currentContext;
-                effectiveLabel = dotSegments[dotSegments.length - 1].trim();
-              }
-
-              // قياس المسافات بدقة
-              const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
-              const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
-              const rawSpaces = rawPrefixMatch
-                .replace(/\t/g, "   ")
-                .replace(/\u00A0/g, " ")
-                .length;
-
-              const totalSpaces = rawSpaces + (cellLevelStyleIndent * 3);
-
-              // تكميم العمق: 0 = رئيسي (Level 0)، 1 = فرعي (Level 1)، 2 = فرعي ثانٍ (Level 2)
-              let itemDepth = 0;
-              if (totalSpaces >= 6) {
-                itemDepth = 2;
-              } else if (totalSpaces >= 1) {
-                itemDepth = 1;
-              } else {
-                itemDepth = 0;
-              }
-
-              const topNode = (stack.length > 0) ? stack[stack.length - 1].node : cur_target_container;
-              if (topNode && topNode.label === "Actions" && effectiveLabel.includes(".")) {
-                effectiveLabel = effectiveLabel.split(".")[1];
-              }
-
-              const newNode = createNode(effectiveLabel, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              if (pColBTrim) newNode.children.push(createNode("Purpose", pColBTrim, false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
-
-              if (explicitParent) {
-                explicitParent.children.push(newNode);
-                stack = [
-                  { node: cur_target_container, depth: -1 },
-                  { node: explicitParent, depth: 0 },
-                  { node: newNode, depth: itemDepth || 1 }
-                ];
-              } else {
-                // نرجع في المكدس للوراء طالما أن العمق السابق أكبر من أو يساوي عمقنا الحالي.
-                // هذا يضمن أن الإخوة (مثل Channel و MemoryController و Slot و Socket) يضافون لنفس الأب مباشرة كـ Siblings!
-                while (stack.length > 1 && stack[stack.length - 1].depth >= itemDepth) {
-                  stack.pop();
-                }
-
-                const assignedParent = (stack.length > 0) ? stack[stack.length - 1].node : cur_target_container;
-                if (assignedParent && Array.isArray(assignedParent.children)) {
-                  assignedParent.children.push(newNode);
-                } else {
-                  cur_target_container.children.push(newNode);
-                }
-
-                stack.push({ node: newNode, depth: itemDepth });
-              }
-
-              isParsingEnumTable = false;
-              currentEnumContainer = null;
-            }
-
-            rIndex++;
-          }
-
-          if (currentActiveFolder) {
-            currentActiveFolder.children.push(resourceRoot);
-          } else {
-            resourcesContainerNode.children.push(resourceRoot);
-          }
-
-          i = rIndex - 1;
-        } 
-        
-        else if (
-          colA.toLowerCase().includes("extrareq") || 
-          colA.toLowerCase().includes("conditional") || 
-          colA.toLowerCase() === "xx"
-        ) {
-          let blockIndex = (colA.toLowerCase().includes("keyword") || colA.toLowerCase().includes("requirements")) ? i + 1 : i;
-
-          while (blockIndex < rawRows.length) {
-            const headObj = rawRows[blockIndex];
-            if (!headObj) { blockIndex++; continue; }
-            const hLine = headObj.values || [];
-            const hColA = String(hLine[0] || "").trim().toLowerCase();
-            const hParam = String(hLine[1] || "").trim().toLowerCase();
-
-            if (hParam !== "resource") {
-              if (hColA === "xx" || hColA.includes("extrareq") || hColA.includes("conditional") || !hColA) {
-                blockIndex++;
-                continue;
-              }
-              break;
-            }
-
-            const blockType = hColA.includes("conditional") ? "ConditionalRequirements" : "ExtraReq";
-            const targetResource = String(hLine[2] || "").trim();
-            let targetProperty = "";
-            let targetSubProperty = "";
-            let targetSubSubProperty = "";
-            let paramsMap = {};
-
-            let entryIdx = blockIndex + 1;
-            while (entryIdx < rawRows.length) {
-              const eRowObj = rawRows[entryIdx];
-              if (!eRowObj) { entryIdx++; continue; }
-              const eLine = eRowObj.values || [];
-              const eColA = String(eLine[0] || "").trim().toLowerCase();
-              const paramName = String(eLine[1] || "").trim();
-              const val = String(eLine[2] || "").trim();
-
-              if (eColA !== "xx" && !eColA.includes("extrareq") && !eColA.includes("conditional") && eColA !== "") break;
-              if (paramName.toLowerCase() === "resource") break;
-
-              const pLower = paramName.toLowerCase();
-              if (!paramName || pLower === "param" || pLower === "conditional keyword") {
-                entryIdx++;
-                continue;
-              }
-
-              if (pLower === "property") targetProperty = val;
-              else if (pLower === "subproperty") targetSubProperty = val;
-              else if (pLower === "subsubproperty") targetSubSubProperty = val;
-              else if (paramName) {
-                if (!paramsMap[paramName]) paramsMap[paramName] = [];
-                paramsMap[paramName].push({ val: val, rowObj: eRowObj });
-              }
-              entryIdx++;
-            }
-
-            const ruleGroup = createNode(blockType, null, false, getCellMeta(headObj, 0));
-
-            for (const pName in paramsMap) {
-              const items = paramsMap[pName];
-              if (items.length === 1) {
-                ruleGroup.children.push(createNode(pName, items[0].val, false, getCellMeta(items[0].rowObj, 2)));
-              } else {
-                const listContainer = createNode(pName, null, false, getCellMeta(items[0].rowObj, 1));
-                items.forEach(item => {
-                  listContainer.children.push(createNode("", item.val, false, getCellMeta(item.rowObj, 2)));
-                });
-                ruleGroup.children.push(listContainer);
-              }
-            }
-
-            const targetResNode = findPropertyNodeDeep(resourcesContainerNode.children, targetResource);
-            const propName = targetSubSubProperty || targetSubProperty || targetProperty;
-
-            if (targetResNode) {
-              if (propName) {
-                const targetPropNode = findPropertyNodeDeep(targetResNode.children, propName);
-                if (targetPropNode) {
-                  targetPropNode.children.push(ruleGroup);
-                } else {
-                  targetResNode.children.push(ruleGroup);
-                }
-              } else {
-                targetResNode.children.push(ruleGroup);
-              }
-            } else {
-              ruleGroup.label = `${blockType} (${targetResource}${propName ? ' > ' + propName : ''})`;
-              resourcesContainerNode.children.push(ruleGroup);
-            }
-
-            blockIndex = entryIdx;
-          }
-
-          i = blockIndex - 1;
-        }
-
         i++;
       }
 
-      function bubbleUpVersions(nodeList) {
-        nodeList.forEach(node => {
-          if (node.children && node.children.length > 0) {
-            bubbleUpVersions(node.children);
-            node.children.forEach(c => {
-              if (c.opasVersions) {
-                if (c.opasVersions.v1) node.opasVersions.v1 = true;
-                if (c.opasVersions.v2) node.opasVersions.v2 = true;
-                if (c.opasVersions.v3) node.opasVersions.v3 = true;
-              }
-            });
-          }
-        });
-      }
-
-      const finalTree = [];
-      if (profileNameNode) finalTree.push(profileNameNode);
-      if (profilePurposeNode) finalTree.push(profilePurposeNode);
-      if (resourcesContainerNode.children.length > 0) finalTree.push(resourcesContainerNode);
-      if (schemasContainerNode.children.length > 0) finalTree.push(schemasContainerNode);
-
-      bubbleUpVersions(finalTree);
-
-      function cleanPhantomNodes(nodes) {
-        return nodes.filter(node => {
-          if (node.label && node.label.trim().toLowerCase() === "f") return false;
-          if (node.children && node.children.length > 0) {
-            node.children = cleanPhantomNodes(node.children);
-          }
-          return true;
-        });
-      }
-
-      return cleanPhantomNodes(finalTree);
+      return rootNodes;
     }
 
-    function indexToColLetters(colIndex) {
-      let temp = colIndex + 1;
-      let letter = '';
-      while (temp > 0) {
-        let mod = (temp - 1) % 26;
-        letter = String.fromCharCode(65 + mod) + letter;
-        temp = Math.floor((temp - mod) / 26);
-      }
-      return letter;
-    }
-
-    function mapRequirementInputToCode(rawVal) {
-      const v = String(rawVal || "").trim();
-      const upper = v.toUpperCase();
-      if (upper.startsWith("M")) return "M";
-      if (upper.startsWith("R")) return "R";
-      if (upper.startsWith("C")) return "C";
-      if (upper.startsWith("I")) return "I";
-      if (upper === "NONE" || upper === "") return "";
-      return v;
-    }
-
-    function updateNodeValue(targetNodeId, newValue) {
-      const file = getActiveFile();
-      if (!file) return;
-
-      const node = findNodeById(file.treeData, targetNodeId);
-      if (!node) return;
-
-      node.value = parseTypedValue(newValue);
-
-      if (node.excelLoc) {
-        const loc = node.excelLoc;
-        const sheetName = loc.sheet;
-        const cellRef = loc.cellRef;
-        const codeVal = mapRequirementInputToCode(newValue);
-
-        if (!file.modifiedCells[sheetName]) {
-          file.modifiedCells[sheetName] = {};
-        }
-
-        file.modifiedCells[sheetName][cellRef] = codeVal;
-      }
-
-      if (!isPaneHidden) {
-        const processedNodes = filterTreeByProfile(file.treeData, selectedProfileFilter);
-        const exportedData = buildExportObject(processedNodes, selectedVersionScope);
-        if (file.format === 'yaml') {
-          codeRawText = window.jsyaml ? jsyaml.dump(exportedData) : simpleYamlDump(exportedData);
-        } else {
-          codeRawText = JSON.stringify(exportedData, null, 2);
-        }
-        document.getElementById("code-output").textContent = codeRawText;
-      }
-    }
-
-    async function saveExactPreservedExcelFile() {
-      const file = getActiveFile();
-      if (!file || !file.zip) {
-        alert("No active Excel file loaded to save.");
-        return;
-      }
-
-      try {
-        showLoading(true, "Patching Worksheets...");
-
-        const XML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-
-        for (const sheetName in file.modifiedCells) {
-          let sheetXmlPath = file.sheetMap[sheetName];
-          if (!sheetXmlPath) {
-            const foundKey = Object.keys(file.sheetMap).find(k => k.toLowerCase() === sheetName.toLowerCase());
-            if (foundKey) sheetXmlPath = file.sheetMap[foundKey];
-          }
-          if (!sheetXmlPath) continue;
-
-          let xmlContent = await file.zip.file(sheetXmlPath).async("string");
-          const parser = new DOMParser();
-          const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
-
-          const changes = file.modifiedCells[sheetName];
-
-          for (const cellRef in changes) {
-            const newVal = changes[cellRef];
-            let cellEl = null;
-
-            const cElements = xmlDoc.getElementsByTagName("c");
-            for (let i = 0; i < cElements.length; i++) {
-              if (cElements[i].getAttribute("r") === cellRef) {
-                cellEl = cElements[i];
-                break;
-              }
-            }
-
-            if (!cellEl) {
-              const rowNum = cellRef.replace(/[A-Za-z]/g, '');
-              let rowEl = null;
-              const rowElements = xmlDoc.getElementsByTagName("row");
-              for (let r = 0; r < rowElements.length; r++) {
-                if (rowElements[r].getAttribute("r") === rowNum) {
-                  rowEl = rowElements[r];
-                  break;
-                }
-              }
-
-              if (!rowEl) {
-                rowEl = xmlDoc.createElementNS(XML_NS, "row");
-                rowEl.setAttribute("r", rowNum);
-                const sheetData = xmlDoc.getElementsByTagName("sheetData")[0];
-                if (sheetData) sheetData.appendChild(rowEl);
-              }
-
-              cellEl = xmlDoc.createElementNS(XML_NS, "c");
-              cellEl.setAttribute("r", cellRef);
-              rowEl.appendChild(cellEl);
-            }
-
-            while (cellEl.firstChild) {
-              cellEl.removeChild(cellEl.firstChild);
-            }
-
-            cellEl.removeAttribute("t");
-
-            if (newVal !== "" && newVal !== null && newVal !== undefined) {
-              cellEl.setAttribute("t", "inlineStr");
-              const isEl = xmlDoc.createElementNS(XML_NS, "is");
-              const tEl = xmlDoc.createElementNS(XML_NS, "t");
-              tEl.textContent = String(newVal);
-              isEl.appendChild(tEl);
-              cellEl.appendChild(isEl);
-            }
-          }
-
-          const serializer = new XMLSerializer();
-          file.zip.file(sheetXmlPath, serializer.serializeToString(xmlDoc));
-        }
-
-        const patchedBlob = await file.zip.generateAsync({
-          type: "blob",
-          compression: "DEFLATE",
-          compressionOptions: { level: 6 },
-          mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        });
-
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(patchedBlob);
-        link.download = file.name || "Updated_Specification.xlsx";
-        link.click();
-      } catch (err) {
-        alert(`Error saving workbook: ${err.message}`);
-      } finally {
-        showLoading(false);
-      }
-    }
-
-    function toggleOutputPane() {
-      const panel = document.getElementById("output-panel");
-      const showBtn = document.getElementById("show-pane-resizer-btn");
-
-      isPaneHidden = !isPaneHidden;
-
-      if (isPaneHidden) {
-        panel.classList.add("hidden-pane");
-        showBtn.style.display = "inline-flex";
-      } else {
-        panel.classList.remove("hidden-pane");
-        showBtn.style.display = "none";
-        updateOutputFromTree();
-      }
-    }
-
-    function initResizer() {
-      const resizer = document.getElementById("drag-resizer");
-      const outputPanel = document.getElementById("output-panel");
-      const container = document.getElementById("main-container");
-
-      let x = 0;
-      let outputWidth = 0;
-
-      const mouseDownHandler = function (e) {
-        if (isPaneHidden) return;
-        x = e.clientX;
-        outputWidth = outputPanel.getBoundingClientRect().width;
-        resizer.classList.add("dragging");
-        outputPanel.style.transition = "none";
-
-        document.addEventListener("mousemove", mouseMoveHandler);
-        document.addEventListener("mouseup", mouseUpHandler);
-      };
-
-      const mouseMoveHandler = function (e) {
-        const dx = e.clientX - x;
-        const containerWidth = container.getBoundingClientRect().width;
-        let newWidth = ((outputWidth - dx) / containerWidth) * 100;
-
-        newWidth = Math.max(25, Math.min(newWidth, 85));
-        outputPanel.style.width = `${newWidth}%`;
-      };
-
-      const mouseUpHandler = function () {
-        resizer.classList.remove("dragging");
-        outputPanel.style.transition = "width 0.15s ease-out";
-
-        document.removeEventListener("mousemove", mouseMoveHandler);
-        document.removeEventListener("mouseup", mouseUpHandler);
-      };
-
-      resizer.addEventListener("mousedown", mouseDownHandler);
-    }
-
-    function toggleEditMode() {
-      isEditMode = !isEditMode;
-      const btn = document.getElementById("toggle-edit-btn");
-      const label = document.getElementById("edit-mode-label");
-
-      if (isEditMode) {
-        document.body.classList.add("edit-mode-active");
-        btn.classList.add("active");
-        label.textContent = "Edit: ON";
-      } else {
-        document.body.classList.remove("edit-mode-active");
-        btn.classList.remove("active");
-        label.textContent = "Edit: OFF";
-      }
-
-      refreshView();
-    }
-
-    function isRequirementKey(label) {
-      return label === "ReadRequirement" || label === "WriteRequirement" || label === "Requirement";
-    }
-
-    function setSubtreeVisibility(node, state) {
-      node.checked = state;
-      if (node.children) node.children.forEach(c => setSubtreeVisibility(c, state));
-    }
-
-    function ensureParentsVisible(nodes, targetId) {
-      for (let node of nodes) {
-        if (String(node.id) === String(targetId)) return true;
-        if (node.children && node.children.length > 0) {
-          if (ensureParentsVisible(node.children, targetId)) {
-            node.checked = true;
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-
-    function editNodeLabel(id) {
-      if (!isEditMode) return;
-      const file = getActiveFile();
-      const node = findNodeById(file.treeData, id);
-      if (node) {
-        const newLabel = prompt("Edit node label/key:", node.label);
-        if (newLabel && newLabel.trim() !== "") {
-          node.label = newLabel.trim();
-          updateProfileDropdowns();
-          refreshView();
-          if (!isPaneHidden) updateOutputFromTree();
-        }
-      }
-    }
-
-    function addChildNode(parentId) {
-      if (!isEditMode) return;
-      if (isActiveFileExcel()) {
-        alert("Adding new nodes is disabled for Excel workbooks to preserve workbook schema integrity.");
-        return;
-      }
-      const label = prompt("Enter new child node key/name (e.g., ReadRequirement or WriteRequirement):");
-      if (!label) return;
-
-      const file = getActiveFile();
-      const parentNode = findNodeById(file.treeData, parentId);
-      if (parentNode) {
-        if (!parentNode.children) parentNode.children = [];
-        parentNode.value = null;
-        
-        const clean = label.trim();
-        const initialVal = isRequirementKey(clean) ? "Recommended" : "";
-
-        parentNode.children.push({
-          id: "n_" + Math.random().toString(36).substr(2, 9),
-          label: clean,
-          value: initialVal,
-          checked: parentNode.checked,
-          expanded: false,
-          opasVersions: parentNode.opasVersions || { v1: true, v2: true, v3: true },
-          children: []
-        });
-        parentNode.expanded = true;
-        
-        updateProfileDropdowns();
-        refreshView();
-        if (!isPaneHidden) updateOutputFromTree();
-      }
-    }
-
-    function deleteNode(id) {
-      if (!isEditMode) return;
-      if (!confirm("Are you sure you want to delete this node?")) return;
-      const file = getActiveFile();
-      file.treeData = deleteNodeRecursive(file.treeData, id);
-      
-      updateProfileDropdowns();
-      refreshView();
-      if (!isPaneHidden) updateOutputFromTree();
-    }
-
-    function deleteNodeRecursive(nodes, id) {
-      return nodes.filter(node => {
-        if (String(node.id) === String(id)) return false;
-        if (node.children) node.children = deleteNodeRecursive(node.children, id);
-        return true;
-      });
-    }
-
-    function addRootNode() {
-      if (!isEditMode) {
-        alert("Please enable Edit Mode first to add nodes.");
-        return;
-      }
-      if (isActiveFileExcel()) {
-        alert("Adding root nodes is disabled for Excel workbooks.");
-        return;
-      }
-      
-      let file = getActiveFile();
-      if (!file) {
-        createNewFileTab("new_specification.yaml", [], 'yaml', null);
-        file = getActiveFile();
-      }
-
-      const label = prompt("Enter root node key:", "new_key");
-      if (label) {
-        file.treeData.push({
-          id: "n_" + Math.random().toString(36).substr(2, 9),
-          label: label.trim(),
-          value: null,
-          checked: true,
-          expanded: false,
-          opasVersions: { v1: true, v2: true, v3: true },
-          children: []
-        });
-        
-        document.getElementById("search-input").value = "";
-        updateProfileDropdowns();
-        refreshView();
-        if (!isPaneHidden) updateOutputFromTree();
-      }
-    }
-
-    function expandAll() {
-      const file = getActiveFile();
-      if (!file) return;
-      showLoading(true, "Expanding All Nodes...");
-      setTimeout(() => {
-        setExpandedRecursive(file.treeData, true);
-        refreshVirtualTree();
-        showLoading(false);
-      }, 10);
-    }
-
-    function collapseAll() {
-      const file = getActiveFile();
-      if (!file) return;
-      setExpandedRecursive(file.treeData, false);
-      const resContainer = file.treeData.find(n => n.label === "Resources");
-      if (resContainer) resContainer.expanded = true;
-      refreshVirtualTree();
-    }
-
-    function setExpandedRecursive(nodes, value) {
-      nodes.forEach(node => {
-        node.expanded = value;
-        if (node.children) setExpandedRecursive(node.children, value);
-      });
-    }
-
-    function findNodeById(nodes, id) {
-      if (!nodes) return null;
-      for (let node of nodes) {
-        if (String(node.id) === String(id)) return node;
-        if (node.children && node.children.length > 0) {
-          const found = findNodeById(node.children, id);
-          if (found) return found;
-        }
-      }
-      return null;
-    }
-
-    function parseTypedValue(val) {
-      if (val === "" || val === null || val === undefined) return null;
-      if (val === "true") return true;
-      if (val === "false") return false;
-      if (val === "null") return null;
-      if (!isNaN(val) && String(val).trim() !== "") return Number(val);
-      return val;
-    }
-
-    function filterTreeByProfile(nodes, profile) {
-      if (!nodes) return [];
-      let result = [];
+    // =========================================================================
+    // CLEAN VIRTUAL TREE FLATTENING (حل مشكلة الفلترة والعرض الشلالي)
+    // =========================================================================
+    function flattenVisibleNodes(nodes, profileFilter, searchTerm = "", currentDepth = 0) {
+      let rows = [];
 
       nodes.forEach(node => {
-        if (isProfileKey(node.label) && profile !== "__ALL__" && node.label !== profile) {
-          return;
+        // إذا كان الفلتر محدد لبروفايل، وكان العقدة بروفايل آخر، نتخطاها
+        if (["OSM-Redfish", "OSM-RedfishBMC", "OSM-RedfishDCN"].includes(node.label)) {
+          if (profileFilter !== "__ALL__" && node.label !== profileFilter) return;
         }
 
-        let filteredChildren = [];
-        if (node.children && node.children.length > 0) {
-          filteredChildren = filterTreeByProfile(node.children, profile);
-        }
-
-        result.push({
+        const hasChildren = node.children && node.children.length > 0;
+        rows.push({
           id: node.id,
           label: node.label,
           value: node.value,
-          checked: node.checked,
+          depth: currentDepth,
+          hasChildren: hasChildren,
           expanded: node.expanded,
-          excelLoc: node.excelLoc,
-          opasVersions: node.opasVersions,
-          isAuxiliary: node.isAuxiliary,
-          isComplexType: node.isComplexType,
-          isFolder: node.isFolder,
-          children: filteredChildren
+          isFolder: node.isFolder
         });
-      });
 
-      return result;
-    }
-
-    function buildExportObject(nodes, versionScope = "__ALL__") {
-      let obj = {};
-      nodes.forEach(node => {
-        if (node.checked && nodeMatchesVersionScope(node, versionScope)) {
-          if (node.isFolder && node.children && node.children.length > 0) {
-            const folderChildrenObj = buildExportObject(node.children, versionScope);
-            Object.assign(obj, folderChildrenObj);
-            return;
-          }
-
-          if (node.children && node.children.length > 0) {
-            const isAnonymousArray = node.children.every(c => c.label === "" || (c.label.startsWith("[") && c.label.endsWith("]")));
-            if (isAnonymousArray) {
-              obj[node.label] = node.children.map(c => c.value);
-            } else {
-              const childObj = buildExportObject(node.children, versionScope);
-              if (Object.keys(childObj).length > 0) {
-                obj[node.label] = childObj;
-              } else if (node.value !== undefined && node.value !== null && node.value !== "") {
-                obj[node.label] = node.value;
-              }
-            }
-          } else {
-            obj[node.label] = (node.value !== undefined && node.value !== null && node.value !== "") ? node.value : null;
-          }
+        if (hasChildren && node.expanded) {
+          rows = rows.concat(flattenVisibleNodes(node.children, profileFilter, searchTerm, currentDepth + 1));
         }
       });
-      return obj;
+
+      return rows;
+    }
+
+    function refreshVirtualTree() {
+      const file = filesState[0];
+      const spacer = document.getElementById("virtual-tree-spacer");
+      const content = document.getElementById("virtual-tree-content");
+      const badge = document.getElementById("row-count-badge");
+
+      if (!file || !file.treeData) return;
+
+      virtualRowsList = flattenVisibleNodes(file.treeData, selectedProfileFilter, "", 0);
+      spacer.style.height = `${virtualRowsList.length * ROW_HEIGHT}px`;
+      badge.textContent = `${virtualRowsList.length} nodes`;
+      handleVirtualScroll();
+    }
+
+    function handleVirtualScroll() {
+      const viewport = document.getElementById("virtual-tree-viewport");
+      const content = document.getElementById("virtual-tree-content");
+      if (virtualRowsList.length === 0) { content.innerHTML = ""; return; }
+
+      const scrollTop = viewport.scrollTop;
+      const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - 5);
+      const endIndex = Math.min(virtualRowsList.length, Math.ceil((scrollTop + viewport.clientHeight) / ROW_HEIGHT) + 5);
+
+      content.style.transform = `translateY(${startIndex * ROW_HEIGHT}px)`;
+
+      let html = "";
+      for (let i = startIndex; i < endIndex; i++) {
+        const item = virtualRowsList[i];
+        const paddingLeft = item.depth * 18 + 6;
+
+        html += `
+          <div class="virtual-row" style="padding-left: ${paddingLeft}px;">
+            <span class="toggle-icon ${!item.hasChildren ? 'hidden-icon' : ''}" onclick="toggleExpand('${item.id}')">
+              <i class="fa-solid ${item.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i>
+            </span>
+            <span class="node-label">${item.label}</span>
+            ${item.value !== null ? `<span class="node-colon">:</span><span class="node-value-input">${item.value}</span>` : ''}
+          </div>
+        `;
+      }
+      content.innerHTML = html;
+    }
+
+    function toggleExpand(id) {
+      function toggle(list) {
+        for (let n of list) {
+          if (n.id === id) { n.expanded = !n.expanded; return true; }
+          if (n.children && toggle(n.children)) return true;
+        }
+        return false;
+      }
+      toggle(filesState[0].treeData);
+      refreshVirtualTree();
+    }
+
+    function expandAll() {
+      function exp(list, state) {
+        list.forEach(n => { n.expanded = state; if (n.children) exp(n.children, state); });
+      }
+      exp(filesState[0].treeData, true);
+      refreshVirtualTree();
+    }
+
+    function collapseAll() {
+      function col(list) {
+        list.forEach(n => { n.expanded = false; if (n.children) col(n.children); });
+      }
+      col(filesState[0].treeData);
+      refreshVirtualTree();
+    }
+
+    function applyProfileFilter(val) {
+      selectedProfileFilter = val;
+      refreshVirtualTree();
     }
 
     function updateOutputFromTree() {
-      if (isPaneHidden) return;
-      isUpdatingFromTree = true;
-      hideError();
-      const file = getActiveFile();
-      if (!file) {
-          isUpdatingFromTree = false;
-          return;
-      }
-
-      try {
-        const processedNodes = filterTreeByProfile(file.treeData, selectedProfileFilter);
-        const exportedData = buildExportObject(processedNodes, selectedVersionScope);
-
-        if (file.format === 'yaml') {
-          codeRawText = window.jsyaml ? jsyaml.dump(exportedData) : simpleYamlDump(exportedData);
-        } else {
-          codeRawText = JSON.stringify(exportedData, null, 2);
-        }
-
-        renderCodeWithHighlights(codeRawText, currentSearchQuery, activeMatchIndex);
-      } catch (err) {
-        console.error("Serialization error:", err);
-      }
-
-      setTimeout(() => {
-        isUpdatingFromTree = false;
-      }, 150); 
-    }
-
-    function handleCodeInput() {
-      if (isUpdatingFromTree) return;
-
-      const file = getActiveFile();
-      if (!file) return;
-
-      const codeContainer = document.getElementById("code-output");
-      codeRawText = codeContainer.innerText || codeContainer.textContent;
-      let parsedData = null;
-
-      try {
-        if (file.format === 'yaml') {
-          parsedData = window.jsyaml ? jsyaml.load(codeRawText) : JSON.parse(codeRawText);
-        } else {
-          parsedData = JSON.parse(codeRawText);
-        }
-
-        hideError();
-
-        if (typeof parsedData === 'object' && parsedData !== null) {
-          file.treeData = objectToTreeData(parsedData, file.treeData);
-          updateProfileDropdowns();
-          refreshView();
-        }
-      } catch (e) {
-        showError(e.message || "Invalid syntax format");
-      }
-    }
-
-    function objectToTreeData(obj, existingTree = []) {
-      const result = [];
-
-      if (Array.isArray(obj)) {
-        obj.forEach((val, index) => {
-          const existingNode = existingTree && existingTree[index] ? existingTree[index] : null;
-          const isObject = typeof val === 'object' && val !== null;
-
-          result.push({
-            id: existingNode ? existingNode.id : ("n_" + Math.random().toString(36).substr(2, 9)),
-            label: "",
-            value: !isObject ? val : null,
-            checked: existingNode ? existingNode.checked : true,
-            expanded: false,
-            excelLoc: existingNode ? existingNode.excelLoc : null,
-            opasVersions: existingNode ? existingNode.opasVersions : { v1: true, v2: true, v3: true },
-            children: isObject ? objectToTreeData(val, existingNode ? existingNode.children : []) : []
-          });
-        });
-        return result;
-      }
-
-      for (let key in obj) {
-        const cleanKey = key.trim();
-        const existingNode = findNodeByLabel(existingTree, cleanKey);
-        const val = obj[key];
-        const isObjectOrArray = typeof val === 'object' && val !== null && (Array.isArray(val) ? val.length > 0 : Object.keys(val).length > 0);
-
-        result.push({
-          id: existingNode ? existingNode.id : ("n_" + Math.random().toString(36).substr(2, 9)),
-          label: cleanKey,
-          value: !isObjectOrArray ? (val !== undefined && val !== null ? val : null) : null,
-          checked: existingNode ? existingNode.checked : true,
-          expanded: false,
-          excelLoc: existingNode ? existingNode.excelLoc : null,
-          opasVersions: existingNode ? existingNode.opasVersions : { v1: true, v2: true, v3: true },
-          children: isObjectOrArray ? objectToTreeData(val, existingNode ? existingNode.children : []) : []
-        });
-      }
-
-      return result;
-    }
-
-    function findNodeByLabel(nodes, label) {
-      if (!nodes) return null;
-      return nodes.find(n => n.label === label) || null;
-    }
-
-    function switchFormat(format, triggerUpdate = true) {
-      const file = getActiveFile();
-      if (file) file.format = format;
-
-      document.getElementById("tab-yaml").classList.toggle("active", format === 'yaml');
-      document.getElementById("tab-json").classList.toggle("active", format === 'json');
-      if (triggerUpdate && !isPaneHidden) updateOutputFromTree();
-    }
-
-    function showError(msg) {
-      const banner = document.getElementById("error-banner");
-      document.getElementById("error-message").textContent = msg;
-      banner.style.display = "flex";
-    }
-
-    function hideError() {
-      document.getElementById("error-banner").style.display = "none";
+      const dump = simpleYamlDump(filesState[0].treeData);
+      document.getElementById("code-output").textContent = dump;
     }
 
     function copyToClipboard() {
-      navigator.clipboard.writeText(codeRawText).then(() => alert("Copied to clipboard!"));
-    }
-
-    function downloadFile() {
-      const file = getActiveFile();
-      const format = file ? file.format : 'yaml';
-      
-      if (!codeRawText) {
-        const codeContainer = document.getElementById("code-output");
-        codeRawText = codeContainer.innerText || codeContainer.textContent || "";
-      }
-
-      const mimeType = format === 'json' ? "application/json" : "text/yaml";
-      const blob = new Blob([codeRawText], { type: `${mimeType};charset=utf-8` });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-
-      const baseName = file && file.name ? file.name.replace(/\.[^/.]+$/, "") : "profile-specification";
-      link.download = `${baseName}.${format}`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
+      navigator.clipboard.writeText(document.getElementById("code-output").textContent).then(() => alert("Copied!"));
     }
   </script>
 </body>
