@@ -1075,6 +1075,9 @@
     const ROW_HEIGHT = 30;
     let virtualRowsList = [];
 
+    // Global debug store for complete row-by-row inspection
+    window.__OPAS_ROW_DEBUG_LOG = [];
+
     const AUXILIARY_COMPLEX_TYPES = [
       'ActionInfo', 'Event', 'IPAddress', 'IPStaticAddress', 
       'IPGatewayStaticAddress', 'Payload', 'Identifier', 
@@ -1530,6 +1533,8 @@
           }
         }
 
+        const debugTitle = `Node: ${node.label} | Depth: ${currentDepth} | Loc: ${displayLoc ? displayLoc.cellRef : 'N/A'}`;
+
         const rowItem = {
           node: node,
           id: node.id,
@@ -1541,7 +1546,8 @@
           expanded: node.expanded === true,
           checked: node.checked !== false,
           excelLoc: displayLoc,
-          isFolder: node.isFolder === true
+          isFolder: node.isFolder === true,
+          debugTooltip: debugTitle
         };
 
         rows.push(rowItem);
@@ -1673,7 +1679,7 @@
         const showInputBox = isEditMode || hasValueContent || isReq;
 
         html += `
-          <div class="virtual-row ${!item.checked ? 'node-hidden' : ''}" style="padding-left: ${paddingLeft}px;" data-id="${item.id}">
+          <div class="virtual-row ${!item.checked ? 'node-hidden' : ''}" style="padding-left: ${paddingLeft}px;" data-id="${item.id}" title="${item.debugTooltip || item.label}">
             <span class="toggle-icon ${!item.hasChildren ? 'hidden-icon' : ''}" onclick="toggleVirtualExpand('${item.id}')">
               <i class="fa-solid ${item.expanded ? 'fa-chevron-down' : 'fa-chevron-right'}"></i>
             </span>
@@ -1681,14 +1687,13 @@
               <i class="fa-solid ${item.checked ? 'fa-eye' : 'fa-eye-slash'}"></i>
             </div>
             ${item.isFolder ? `<i class="fa-solid ${item.expanded ? 'fa-folder-open' : 'fa-folder'} folder-icon"></i>` : ''}
-            ${!isAnonymousItem ? `<span class="node-label ${item.isFolder ? 'folder-label' : ''}" title="${item.label}">${item.label}</span>` : ''}
+            ${!isAnonymousItem ? `<span class="node-label ${item.isFolder ? 'folder-label' : ''}">${item.label}</span>` : ''}
             ${(!item.hasChildren && showInputBox) || hasValueContent ? `
               ${!isAnonymousItem ? `<span class="node-colon">:</span>` : ''}
               <input 
                 type="text" 
                 class="node-value-input" 
                 value="${displayVal}" 
-                title="${displayVal}"
                 placeholder="${isReq ? 'Mandatory / Recommended...' : 'value'}"
                 ${isReq ? 'list="requirement-options-list"' : ''}
                 onchange="updateNodeValue('${item.targetId}', this.value)"
@@ -2296,6 +2301,9 @@
     function buildTreeFrom2DMatrix(rawRows, sheetName) {
       if (!rawRows || rawRows.length === 0) return [];
 
+      // Reset global debug log on each workbook parse
+      window.__OPAS_ROW_DEBUG_LOG = [];
+
       let nodeCount = 0;
       function createNode(label, value = null, isExpanded = false, loc = null, versions = null, isAux = false, isFolder = false) {
         return {
@@ -2536,18 +2544,14 @@
           let cur_target_container = resourceRoot; 
 
           // =========================================================================
-          // UNIVERSAL INDENT QUANTIZATION & ANCESTOR STACK (Python Engine)
+          // ROBUST STACK ENGINE (Guaranteed Safe from undefined errors)
           // =========================================================================
-          // ancestors[0] = Root table container (e.g. Memory Resource)
-          // ancestors[1] = Level 0 Property (e.g. MemoryLocation)
-          // ancestors[2] = Level 1 Property (e.g. Channel, MemoryController, Slot)
-          let ancestors = [cur_target_container];
-
+          let stack = [{ node: cur_target_container, depth: -1 }];
           let isParsingEnumTable = false;
           let currentEnumContainer = null;
 
-          function resetAncestors() {
-            ancestors = [cur_target_container];
+          function resetStack() {
+            stack = [{ node: cur_target_container, depth: -1 }];
           }
 
           while (rIndex < rawRows.length) {
@@ -2558,7 +2562,6 @@
             }
 
             const pLine = pRowObj.values || [];
-            // تنظيف النص بالكامل من أي محارف تحكم مخفية قد تكسر المقارنة
             const pColA = String(pLine[0] || "").replace(/[\r\n\x00-\x1F\x7F]/g, '');
             const pColB = String(pLine[1] || "").replace(/[\r\n\x00-\x1F\x7F]/g, '');
             const pColC = String(pLine[2] || "").trim();
@@ -2617,7 +2620,7 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = ancestors.length > 1 ? ancestors[ancestors.length - 1] : null;
+                const lastNode = stack.length > 1 ? stack[stack.length - 1].node : null;
                 if (lastNode && lastNode !== cur_target_container) {
                   currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
@@ -2649,7 +2652,7 @@
                   cur_target_container = resourceRoot;
                 }
 
-                resetAncestors();
+                resetStack();
               }
               rIndex++;
               continue;
@@ -2667,7 +2670,7 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              resetAncestors();
+              resetStack();
               rIndex++;
               continue;
             }
@@ -2675,7 +2678,7 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = ancestors.length > 1 ? ancestors[ancestors.length - 1] : null;
+              const lastNode = stack.length > 1 ? stack[stack.length - 1].node : null;
               if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
                 currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
@@ -2733,7 +2736,6 @@
               let effectiveLabel = pColATrim;
               let explicitParent = null;
 
-              // دعم مسار Dot notation إذا كان مستخدماً في بعض الجداول
               if (effectiveLabel.includes(".") && !effectiveLabel.startsWith("/")) {
                 const dotSegments = effectiveLabel.split(".");
                 let currentContext = cur_target_container;
@@ -2750,7 +2752,7 @@
                 effectiveLabel = dotSegments[dotSegments.length - 1].trim();
               }
 
-              // قياس المسافات بدقة تامة وتكميمها (Quantization)
+              // Measure whitespace indents
               const rawPrefixMatch = pColA.match(/^[\s\u00A0]*/)[0];
               const cellLevelStyleIndent = (pRowObj.indents && pRowObj.indents[0]) ? pRowObj.indents[0] : 0;
               const rawSpaces = rawPrefixMatch
@@ -2760,19 +2762,18 @@
 
               const totalSpaces = rawSpaces + (cellLevelStyleIndent * 3);
 
-              // تكميم العمق: 0 = رئيسي، 1 = فرعي أول (مثل Channel, Slot)، 2 = فرعي ثاني
-              let targetDepth = 0;
+              // Depth Quantization: 0 = Root Property (e.g. MemoryLocation), 1 = Child Sibling, 2 = Grandchild
+              let itemDepth = 0;
               if (totalSpaces >= 6) {
-                targetDepth = 2;
+                itemDepth = 2;
               } else if (totalSpaces >= 1) {
-                targetDepth = 1;
+                itemDepth = 1;
               } else {
-                targetDepth = 0;
+                itemDepth = 0;
               }
 
-              // فحص Actions
-              const parentCandidate = ancestors[ancestors.length - 1];
-              if (parentCandidate && parentCandidate.label === "Actions" && effectiveLabel.includes(".")) {
+              const topNode = (stack.length > 0) ? stack[stack.length - 1].node : cur_target_container;
+              if (topNode && topNode.label === "Actions" && effectiveLabel.includes(".")) {
                 effectiveLabel = effectiveLabel.split(".")[1];
               }
 
@@ -2781,22 +2782,45 @@
               attachProfileRequirements(newNode, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(newNode, specialReqsRaw, pRowObj, rowVersions);
 
+              let assignedParentName = "ROOT";
+
               if (explicitParent) {
                 explicitParent.children.push(newNode);
-                ancestors = [cur_target_container, explicitParent, newNode];
+                stack = [
+                  { node: cur_target_container, depth: -1 },
+                  { node: explicitParent, depth: 0 },
+                  { node: newNode, depth: itemDepth || 1 }
+                ];
+                assignedParentName = explicitParent.label;
               } else {
-                // قاعدة الـ Stack الصارمة:
-                // العنصر ذو العمق targetDepth يجب أن يضاف حصراً إلى الأب ذي الفهرس targetDepth
-                // (مثال: Level 1 يضاف دائماً إلى ancestors[1] وهو MemoryLocation!)
-                const parentIdx = Math.min(targetDepth, ancestors.length - 1);
-                const assignedParent = ancestors[parentIdx];
+                // Pop stack until parent depth is strictly less than item depth
+                while (stack.length > 1 && stack[stack.length - 1].depth >= itemDepth) {
+                  stack.pop();
+                }
 
-                assignedParent.children.push(newNode);
+                // Parent is guaranteed to exist and have .children initialized
+                const assignedParent = (stack.length > 0) ? stack[stack.length - 1].node : cur_target_container;
+                if (assignedParent && Array.isArray(assignedParent.children)) {
+                  assignedParent.children.push(newNode);
+                  assignedParentName = assignedParent.label;
+                } else {
+                  cur_target_container.children.push(newNode);
+                  assignedParentName = cur_target_container.label;
+                }
 
-                // حفظ العقدة الحالية في المكدس عند مستواها المناسب ومسح أي مستويات أعمق
-                ancestors[targetDepth + 1] = newNode;
-                ancestors.length = targetDepth + 2;
+                stack.push({ node: newNode, depth: itemDepth });
               }
+
+              // Record complete debug row in global log for inspection
+              window.__OPAS_ROW_DEBUG_LOG.push({
+                row: rIndex + 1,
+                rawText: JSON.stringify(pColA),
+                label: effectiveLabel,
+                leadSpaces: rawSpaces,
+                styleIndent: cellLevelStyleIndent,
+                depth: itemDepth,
+                assignedParent: assignedParentName
+              });
 
               isParsingEnumTable = false;
               currentEnumContainer = null;
@@ -2945,6 +2969,13 @@
           }
           return true;
         });
+      }
+
+      // Print full summary table of all processed rows in browser console
+      if (window.__OPAS_ROW_DEBUG_LOG && window.__OPAS_ROW_DEBUG_LOG.length > 0) {
+        console.groupCollapsed("%c[FULL PARSER DEBUG] All Rows Debug Table (Click to Expand)", "background: #10b981; color: #fff; padding: 4px 8px; border-radius: 4px; font-weight: bold;");
+        console.table(window.__OPAS_ROW_DEBUG_LOG);
+        console.groupEnd();
       }
 
       return cleanPhantomNodes(finalTree);
