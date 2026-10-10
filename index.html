@@ -700,7 +700,7 @@
       width: 110px;
     }
 
-    .code-search-box .search-stat {
+    .search-stat {
       font-size: 0.72rem;
       color: var(--text-muted);
       white-space: nowrap;
@@ -2233,7 +2233,7 @@
           const isEl = cellEl.getElementsByTagName("is")[0];
 
           if (cellType === "s" && vEl) {
-            const ssIndex = parseInt(vEl.textContent, 10);
+            const ssIndex = parseInt(vEl.textContent);
             val = sharedStrings[ssIndex] || "";
           } else if (cellType === "inlineStr" && isEl) {
             const tElements = isEl.getElementsByTagName("t");
@@ -2471,7 +2471,7 @@
         const colA = String(line[0] || "").trim();
         const colB = String(line[1] || "").trim();
 
-        // 1. Check for Section Grouping Folders (e.g. 1.1.2 Event) - من الكود الأول
+        // Section Grouping Folders (e.g. 1.1.2 Event)
         const folderMatch = colA.match(/^1\.1\.(\d+)\s+(.+)$/);
         if (folderMatch) {
           const folderName = folderMatch[2].trim();
@@ -2489,7 +2489,6 @@
           detectedResourceName = colB.trim();
           isResourceTrigger = !!detectedResourceName;
         } else if (colA.startsWith("1.1.")) {
-          // Strips numeric/placeholder prefixes like 1.1.2.1 Event -> Event
           const candidateName = colA.replace(/^1\.1[.\w-]*\s*/, "").trim();
           if (candidateName) {
             detectedResourceName = candidateName;
@@ -2518,12 +2517,17 @@
           }
 
           // =========================================================================
-          // استخدام منطق التداخل (Nesting Logic) الخاص بالكود الثاني بدقة:
+          // Nesting Hierarchy with 4 Tiers:
+          // tier 1: cur_prop_node
+          // tier 2: cur_sub_prop_node
+          // tier 3: cur_sub_sub_prop_node
+          // tier 4: cur_sub_sub_sub_prop_node
           // =========================================================================
           let rIndex = i + 1;
           let cur_prop_node = null;
           let cur_sub_prop_node = null;
           let cur_sub_sub_prop_node = null;
+          let cur_sub_sub_sub_prop_node = null;
 
           while (rIndex < rawRows.length) {
             const pRowObj = rawRows[rIndex];
@@ -2542,19 +2546,19 @@
             const pColATrim = pColA.trim();
             const pColATrimLower = pColATrim.toLowerCase();
 
-            // 1. تجاهل الأسطر غير المهمة
+            // 1. Skip unimportant rows
             if (pColATrimLower === "f" && !pColB.trim()) {
               rIndex++;
               continue;
             }
 
-            // 2. تخطي سطر ترويسة الروابط سواء كانت 'URIs' أو 'URIs:' لتجنب إنشاء عقد فارغة
+            // 2. Skip URI headers
             if (/(?:uris|uris:)$/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
 
-            // 3. التقاط وتجميع كافة الروابط بدون عمل خروج من الحلقة
+            // 3. Collect URIs without breaking
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
@@ -2562,7 +2566,6 @@
                 resourceRoot.children.push(uriNode);
               }
 
-              // التحقق من عدم التكرار ثم إضافة الرابط كعقدة مصفوفية
               const exists = uriNode.children.some(c => (c.value || c.label) === pColATrim);
               if (!exists) {
                 uriNode.children.push(createNode("", pColATrim, false, getCellMeta(pRowObj, 0), rowVersions));
@@ -2572,7 +2575,7 @@
               continue;
             }
 
-            // 4. إيقاف الفحص عند الوصول إلى بداية قسم جديد رئيسي فقط
+            // 4. Terminate on next main section
             if (
               pColATrim.startsWith("1.1.") || 
               pColATrim.startsWith("6.5.") || 
@@ -2582,7 +2585,7 @@
               break;
             }
 
-            // 5. تجاهل ترويسات الجداول والبيانات الوصفية (مطابق للكود الثاني لتفادي كسر الهيكلية)
+            // 5. Ignore table headers and metadata
             if (
               pColATrimLower === "property" ||
               pColATrimLower === "(property)" ||
@@ -2617,36 +2620,51 @@
                 }
               });
               if (minVersionNode.children.length > 0) resourceRoot.children.push(minVersionNode);
-            } else if (pColA.startsWith("          ") && cur_sub_sub_prop_node) {
+            } else if (/^[\s\u00A0]{11,}/.test(pColA) && cur_sub_sub_sub_prop_node) {
+              // Level 4 (11+ leading spaces) -> sub-sub-sub-child of cur_sub_sub_sub_prop_node
               const propName = pColA.trim();
               const node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               if (pColB.trim()) node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(node, specialReqsRaw, pRowObj, rowVersions);
-              cur_sub_sub_prop_node.children.push(node);
-            } else if (pColA.startsWith("      ") && cur_sub_prop_node) {
+              cur_sub_sub_sub_prop_node.children.push(node);
+            } else if (/^[\s\u00A0]{8,10}/.test(pColA) && cur_sub_sub_prop_node) {
+              // Level 3 (8-10 leading spaces) -> sub-sub-sub property under cur_sub_sub_prop_node
+              const propName = pColA.trim();
+              cur_sub_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              if (pColB.trim()) cur_sub_sub_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+              attachProfileRequirements(cur_sub_sub_sub_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_sub_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              cur_sub_sub_prop_node.children.push(cur_sub_sub_sub_prop_node);
+            } else if (/^[\s\u00A0]{5,7}/.test(pColA) && cur_sub_prop_node) {
+              // Level 2 (5-7 leading spaces) -> sub-sub property under cur_sub_prop_node
               const propName = pColA.trim();
               cur_sub_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              cur_sub_sub_sub_prop_node = null;
               if (pColB.trim()) cur_sub_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
+              attachProfileRequirements(cur_sub_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_sub_prop_node.children.push(cur_sub_sub_prop_node);
-            } else if (pColA.startsWith("   ") && cur_prop_node) {
+            } else if (/^[\s\u00A0]{1,4}/.test(pColA) && cur_prop_node) {
+              // Level 1 (1-4 leading spaces) -> sub property under cur_prop_node
               let propName = pColA.trim();
               if (cur_prop_node.label === "Actions" && propName.includes(".")) {
                 propName = propName.split(".")[1];
               }
               cur_sub_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_sub_prop_node = null;
+              cur_sub_sub_sub_prop_node = null;
               if (pColB.trim()) cur_sub_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_prop_node.children.push(cur_sub_prop_node);
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
+              // Level 0 (no leading spaces) -> root property under resourceRoot
               const propName = pColA.trim();
               cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
               cur_sub_prop_node = null;
               cur_sub_sub_prop_node = null;
+              cur_sub_sub_sub_prop_node = null;
               if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
@@ -2780,7 +2798,6 @@
         });
       }
 
-      // إضافة منطق دمج العقد المكررة (Deduplication) من الكود الثاني
       function deduplicateChildNodes(node) {
         if (!node.children || node.children.length <= 1) return;
         const uniqueMap = new Map();
@@ -3440,7 +3457,7 @@
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
 
-      const baseName = file && file.name ? file.name.replace(/\.[^/.]+$/, "") : "profile-specification";
+      const baseName = file && file.name ? file.name.replace(/\.[^/.]+\$/, "") : "profile-specification";
       link.download = `${baseName}.${format}`;
 
       document.body.appendChild(link);
