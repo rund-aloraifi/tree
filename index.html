@@ -2775,19 +2775,23 @@
               attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_prop_node.children.push(cur_sub_prop_node);
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
-              // Level 0 (no leading spaces) -> root property under resourceRoot
+              // Level 0 (no leading spaces) -> root property under current active container
               const propName = pColA.trim();
               cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-              cur_sub_prop_node = null;
-              cur_sub_sub_prop_node = null;
-              cur_sub_sub_sub_prop_node = null;
+
               if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
-              resourceRoot.children.push(cur_prop_node);
 
               isParsingEnumTable = false;
               currentEnumContainer = null;
+
+              // الإضافة الصحيحة الوحيدة للحاوية النشطة:
+              cur_target_container.children.push(cur_prop_node);
+
+              cur_sub_prop_node = null;
+              cur_sub_sub_prop_node = null;
+              cur_sub_sub_sub_prop_node = null;
             }
 
             rIndex++;
