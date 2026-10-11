@@ -2598,16 +2598,19 @@
 
 
 
-            // Table Boundaries: Only create sub-containers for actual variant tables (e.g. IPv4/IPv6)
+            // =========================================================================
+            // Multi-table and Enum Table Handling (Table Boundaries & Enum Tables)
+            // =========================================================================
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
+                // Enum table: associates values with the most recently parsed property
                 isParsingEnumTable = true;
-                const lastNode = cur_prop_node;
-                if (lastNode && lastNode !== cur_target_container) {
-                  currentEnumContainer = lastNode.children.find(c => c.label === "Values");
+                const targetProp = cur_sub_sub_prop_node || cur_sub_prop_node || cur_prop_node;
+                if (targetProp && targetProp !== cur_target_container) {
+                  currentEnumContainer = targetProp.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
                     currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                    lastNode.children.push(currentEnumContainer);
+                    targetProp.children.push(currentEnumContainer);
                   }
                 }
               } else {
@@ -2619,6 +2622,7 @@
                   subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
                 }
 
+                // Check whether this table is a distinct variant (e.g. IPv4/IPv6) or a standalone sub-object
                 const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
                                        /\(ipv[46]\)/i.test(subTableName) ||
                                        (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
@@ -2631,9 +2635,11 @@
                   }
                   cur_target_container = subGroup;
                 } else {
+                  // Fall back to the main resource container
                   cur_target_container = resourceRoot;
                 }
 
+                // Reset property tier pointers for the new table
                 cur_prop_node = null;
                 cur_sub_prop_node = null;
                 cur_sub_sub_prop_node = null;
@@ -2663,23 +2669,28 @@
               continue;
             }
 
-            // Header row of Enum Table (String | Description)
+            // Skip descriptive table caption sentences to prevent empty/unwanted property containers
+            if (pColATrimLower.startsWith("values for the") || /Table\s+\d+:\s*Redfish.*Values/i.test(pColATrim)) {
+              rIndex++;
+              continue;
+            }
+
+            // Enum table header row (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = cur_prop_node;
-              //const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
-              if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
-                currentEnumContainer = lastNode.children.find(c => c.label === "Values");
+              const targetProp = cur_sub_sub_prop_node || cur_sub_prop_node || cur_prop_node;
+              if (targetProp && targetProp !== cur_target_container && !currentEnumContainer) {
+                currentEnumContainer = targetProp.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
                   currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
-                  lastNode.children.push(currentEnumContainer);
+                  targetProp.children.push(currentEnumContainer);
                 }
               }
               rIndex++;
               continue;
             }
 
-            // Parse Enum value entries (EUI, UUID, etc.)
+            // Parse Enum value entries and attach them directly to the active enum container
             if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
               const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
               currentEnumContainer.children.push(valNode);
