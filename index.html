@@ -2558,7 +2558,7 @@
               continue;
             }
 
-            // 3. Collect URIs without breaking
+              // Multi-URI collection logic
             if (pColATrim.includes("/redfish/v1/")) {
               let uriNode = resourceRoot.children.find(c => c.label.endsWith("URIs"));
               if (!uriNode) {
@@ -2566,10 +2566,14 @@
                 resourceRoot.children.push(uriNode);
               }
 
-              const exists = uriNode.children.some(c => (c.value || c.label) === pColATrim);
-              if (!exists) {
-                uriNode.children.push(createNode("", pColATrim, false, getCellMeta(pRowObj, 0), rowVersions));
-              }
+              const uriLines = pColATrim.split(/[\r\n]+/).map(u => u.trim()).filter(u => u.includes("/redfish/v1/"));
+              uriLines.forEach(uStr => {
+                const alreadyExists = uriNode.children.some(c => c.value === uStr);
+                if (!alreadyExists) {
+                  const uriIndex = uriNode.children.length + 1;
+                  uriNode.children.push(createNode(`URI [${uriIndex}]`, uStr, false, getCellMeta(pRowObj, 0), rowVersions));
+                }
+              });
 
               rIndex++;
               continue;
