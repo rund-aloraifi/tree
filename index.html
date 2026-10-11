@@ -1176,7 +1176,7 @@
     async function autoLoadDefaultExcelWorkbook() {
       try {
         showLoading(true, `Loading Master Specification...`);
-        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/main/O-PAS-Redfish-Profile-Master.xlsx";
+        const baseUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/main/O-PAS-Redfish-Profile-Master.xlsx";
         const rawFileUrl = `${baseUrl}?t=${Date.now()}`;
 
         const response = await fetch(rawFileUrl);
