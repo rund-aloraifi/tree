@@ -2589,6 +2589,91 @@
               break;
             }
 
+
+
+            // Table Boundaries: Only create sub-containers for actual variant tables (e.g. IPv4/IPv6)
+            if (/^Table\s+\d+:/i.test(pColATrim)) {
+              if (pColATrimLower.includes("values")) {
+                isParsingEnumTable = true;
+                const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
+                if (lastNode && lastNode !== cur_target_container) {
+                  currentEnumContainer = lastNode.children.find(c => c.label === "Values");
+                  if (!currentEnumContainer) {
+                    currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
+                    lastNode.children.push(currentEnumContainer);
+                  }
+                }
+              } else {
+                isParsingEnumTable = false;
+                currentEnumContainer = null;
+                
+                let subTableName = pColATrim.replace(/^Table\s+\d+:\s*/i, "").trim();
+                if (subTableName.toLowerCase().includes("profile map for")) {
+                  subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
+                }
+
+                const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
+                                       /\(ipv[46]\)/i.test(subTableName) ||
+                                       (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
+
+                if (isVariantTable) {
+                  let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
+                  if (!subGroup) {
+                    subGroup = createNode(subTableName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+                    resourceRoot.children.push(subGroup);
+                  }
+                  cur_target_container = subGroup;
+                } else {
+                  cur_target_container = resourceRoot;
+                }
+
+                resetHierarchyStack();
+              }
+              rIndex++;
+              continue;
+            }
+
+            // Shaded sub-object variant headers (e.g. IPAddress (IPv4))
+            if (
+              (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
+              !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
+            ) {
+              isParsingEnumTable = false;
+              let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === pColATrimLower);
+              if (!subGroup) {
+                subGroup = createNode(pColATrim, null, false, getCellMeta(pRowObj, 0), rowVersions);
+                resourceRoot.children.push(subGroup);
+              }
+              cur_target_container = subGroup;
+              resetHierarchyStack();
+              rIndex++;
+              continue;
+            }
+
+            // Header row of Enum Table (String | Description)
+            if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
+              isParsingEnumTable = true;
+              const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
+              if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
+                currentEnumContainer = lastNode.children.find(c => c.label === "Values");
+                if (!currentEnumContainer) {
+                  currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
+                  lastNode.children.push(currentEnumContainer);
+                }
+              }
+              rIndex++;
+              continue;
+            }
+
+            // Parse Enum value entries (EUI, UUID, etc.)
+            if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
+              const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
+              currentEnumContainer.children.push(valNode);
+              rIndex++;
+              continue;
+            }
+
+            
             // 5. Ignore table headers and metadata
             if (
               pColATrimLower === "property" ||
