@@ -2634,7 +2634,10 @@
                   cur_target_container = resourceRoot;
                 }
 
-                resetHierarchyStack();
+                cur_prop_node = null;
+                cur_sub_prop_node = null;
+                cur_sub_sub_prop_node = null;
+                cur_sub_sub_sub_prop_node = null;
               }
               rIndex++;
               continue;
@@ -2652,7 +2655,10 @@
                 resourceRoot.children.push(subGroup);
               }
               cur_target_container = subGroup;
-              resetHierarchyStack();
+              cur_prop_node = null;
+              cur_sub_prop_node = null;
+              cur_sub_sub_prop_node = null;
+              cur_sub_sub_sub_prop_node = null;
               rIndex++;
               continue;
             }
