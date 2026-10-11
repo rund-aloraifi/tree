@@ -2503,6 +2503,7 @@
           const resVersions = parseVersionFlags(line);
           const isAuxiliaryType = AUXILIARY_COMPLEX_TYPES.some(t => t.toLowerCase() === detectedResourceName.toLowerCase());
           const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions, isAuxiliaryType);
+          let cur_target_container = resourceRoot;
 
           let rowDescIdx = i + 1;
           if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
