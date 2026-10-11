@@ -2699,7 +2699,16 @@
               continue;
             }
 
-          
+            // 2. Skip common multi-table purpose sentences if they don't have requirement codes
+            if (
+              (pColATrimLower.startsWith("properties of") || 
+              pColATrimLower.startsWith("defines the properties") ||
+              pColATrimLower.startsWith("values for the")) && 
+              !pLine[2]
+            ) {
+              rIndex++;
+              continue;
+            }
             
             // 5. Ignore table headers and metadata
             if (
