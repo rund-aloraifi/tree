@@ -2528,6 +2528,8 @@
           let cur_sub_prop_node = null;
           let cur_sub_sub_prop_node = null;
           let cur_sub_sub_sub_prop_node = null;
+          let isParsingEnumTable = false;
+          let currentEnumContainer = null;
 
           while (rIndex < rawRows.length) {
             const pRowObj = rawRows[rIndex];
@@ -2545,7 +2547,9 @@
 
             const pColATrim = pColA.trim();
             const pColATrimLower = pColATrim.toLowerCase();
-
+            const pColBTrim = pColB.trim();
+            const pColBTrimLower = pColBTrim.toLowerCase();
+            
             // 1. Skip unimportant rows
             if (pColATrimLower === "f" && !pColB.trim()) {
               rIndex++;
@@ -2758,6 +2762,9 @@
               attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
               resourceRoot.children.push(cur_prop_node);
+
+              isParsingEnumTable = false;
+              currentEnumContainer = null;
             }
 
             rIndex++;
