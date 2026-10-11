@@ -2596,8 +2596,51 @@
               break;
             }
 
+// -------------------------------------------------------------------------
+            // 1. Skip informational note rows (e.g. Row 893)
+            // -------------------------------------------------------------------------
+            if (pColATrimLower.includes("payload strings are described in") && !pLine[2]) {
+              rIndex++;
+              continue;
+            }
+
+            // -------------------------------------------------------------------------
+            // 2. Enum Table Header Rows: Health, HealthRollup, State (Rows 895, 903, 911)
+            //    Bind to the existing property instead of creating a duplicate node
+            // -------------------------------------------------------------------------
+            if (cur_target_container && !pLine[2]) {
+              const matchedProp = cur_target_container.children.find(
+                c => c.label.toLowerCase() === pColATrimLower
+              );
+              if (matchedProp) {
+                cur_prop_node = matchedProp;
+                cur_sub_prop_node = null;
+                cur_sub_sub_prop_node = null;
+                cur_sub_sub_sub_prop_node = null;
+                isParsingEnumTable = false;
+                currentEnumContainer = null;
+                rIndex++;
+                continue;
+              }
+            }
+
+            // -------------------------------------------------------------------------
+            // 3. Skip table descriptions immediately preceding Table XX (Rows 896, 904, 912)
+            //    Prevents descriptions from becoming parent property nodes
+            // -------------------------------------------------------------------------
+            let lookAheadRow = rIndex + 1;
+            while (lookAheadRow < rawRows.length && !rawRows[lookAheadRow]?.values?.[0]) {
+              lookAheadRow++;
+            }
+            const upcomingHeader = String(rawRows[lookAheadRow]?.values?.[0] || "").trim();
+            if (/^Table\s+\d+:/i.test(upcomingHeader) && !pLine[2]) {
+              rIndex++;
+              continue;
+            }
 
 
+            
+            
             // =========================================================================
             // 5. Table Variance & Multi-Table Resource Handling (Matches Spec Exactly)
             // =========================================================================
