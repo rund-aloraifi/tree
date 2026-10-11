@@ -2602,7 +2602,7 @@
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
                 isParsingEnumTable = true;
-                const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
+                const lastNode = cur_prop_node;
                 if (lastNode && lastNode !== cur_target_container) {
                   currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
@@ -2666,7 +2666,8 @@
             // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
-              const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
+              const lastNode = cur_prop_node;
+              //const lastNode = hierarchyStack.length > 1 ? hierarchyStack[hierarchyStack.length - 1].node : null;
               if (lastNode && lastNode !== cur_target_container && !currentEnumContainer) {
                 currentEnumContainer = lastNode.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
