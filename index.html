@@ -1176,11 +1176,14 @@
     async function autoLoadDefaultExcelWorkbook() {
       try {
         showLoading(true, `Loading Master Specification...`);
-        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/O-PAS-Redfish-Profile-Master.xlsx";
+        const rawFileUrl = "https://raw.githubusercontent.com/rund-aloraifi/tree/main/O-PAS-Redfish-Profile-Master.xlsx";
+        const rawFileUrl = `${baseUrl}?t=${Date.now()}`;
 
         const response = await fetch(rawFileUrl);
         if (!response.ok) {
-          showLoading(false);
+          console.warn(`File not found or deleted from repository (HTTP ${response.status})`);
+          filesState = [];
+          refreshVirtualTree();
           return;
         }
 
