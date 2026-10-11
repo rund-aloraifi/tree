@@ -2599,14 +2599,16 @@
 
 
             // =========================================================================
-            // Multi-table and Enum Table Handling (Table Boundaries & Enum Tables)
+            // 5. Table Variance & Multi-Table Resource Handling (Matches Spec Exactly)
             // =========================================================================
+
+            // 5.1 & 5.2: Detect Table Boundaries
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               if (pColATrimLower.includes("values")) {
-                // Enum table: associates values with the most recently parsed property
+                // Supplementary Enum table (e.g. Table 77: ... Values)
                 isParsingEnumTable = true;
                 const targetProp = cur_sub_sub_prop_node || cur_sub_prop_node || cur_prop_node;
-                if (targetProp && targetProp !== cur_target_container) {
+                if (targetProp) {
                   currentEnumContainer = targetProp.children.find(c => c.label === "Values");
                   if (!currentEnumContainer) {
                     currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
@@ -2616,18 +2618,18 @@
               } else {
                 isParsingEnumTable = false;
                 currentEnumContainer = null;
-                
-                let subTableName = pColATrim.replace(/^Table\s+\d+:\s*/i, "").trim();
-                if (subTableName.toLowerCase().includes("profile map for")) {
-                  subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
-                }
 
-                // Check whether this table is a distinct variant (e.g. IPv4/IPv6) or a standalone sub-object
-                const isVariantTable = /\b(ipv4|ipv6)\b/i.test(subTableName) || 
-                                       /\(ipv[46]\)/i.test(subTableName) ||
-                                       (subTableName.toLowerCase().includes(" for ") && !subTableName.toLowerCase().includes(detectedResourceName.toLowerCase()));
+                const hasVariantIndicator = /\(ipv[46]\)/i.test(pColATrim) || 
+                                           /\bfor\s+ipv[46]\b/i.test(pColATrim) || 
+                                           /\b(ipv4|ipv6)\b/i.test(pColATrim);
 
-                if (isVariantTable) {
+                if (hasVariantIndicator) {
+                  // 5.2 Variant Sub-Tables: Spawn dedicated container node
+                  let subTableName = pColATrim.replace(/^Table\s+\d+:\s*/i, "").trim();
+                  if (subTableName.toLowerCase().includes("profile map for")) {
+                    subTableName = subTableName.replace(/.*profile map for (?:the )?/i, "").trim();
+                  }
+
                   let subGroup = resourceRoot.children.find(c => c.label.toLowerCase() === subTableName.toLowerCase());
                   if (!subGroup) {
                     subGroup = createNode(subTableName, null, false, getCellMeta(pRowObj, 0), rowVersions);
@@ -2635,11 +2637,10 @@
                   }
                   cur_target_container = subGroup;
                 } else {
-                  // Fall back to the main resource container
+                  // 5.1 Standard Resource Tables: Attach directly to resource root (no wrapper node)
                   cur_target_container = resourceRoot;
                 }
 
-                // Reset property tier pointers for the new table
                 cur_prop_node = null;
                 cur_sub_prop_node = null;
                 cur_sub_sub_prop_node = null;
@@ -2649,9 +2650,9 @@
               continue;
             }
 
-            // Shaded sub-object variant headers (e.g. IPAddress (IPv4))
+            // 5.3 Shaded Sub-Object Headers (e.g., IPAddress (IPv4), IPGatewayStaticAddress (IPv6))
             if (
-              (pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)") || (pColATrim.startsWith(detectedResourceName) && pColATrim !== detectedResourceName)) &&
+              (/\(ipv[46]\)/i.test(pColATrim) || pColATrim.includes("(IPv4)") || pColATrim.includes("(IPv6)")) &&
               !pColATrimLower.endsWith("uris") && !pColATrimLower.endsWith("uris:") && !pLine[2]
             ) {
               isParsingEnumTable = false;
@@ -2669,17 +2670,17 @@
               continue;
             }
 
-            // Skip descriptive table caption sentences to prevent empty/unwanted property containers
+            // Skip captions/descriptions preceding enum tables to avoid empty phantom nodes
             if (pColATrimLower.startsWith("values for the") || /Table\s+\d+:\s*Redfish.*Values/i.test(pColATrim)) {
               rIndex++;
               continue;
             }
 
-            // Enum table header row (String | Description)
+            // Header row of Enum Table (String | Description)
             if (pColATrimLower === "string" && pColBTrimLower.includes("description")) {
               isParsingEnumTable = true;
               const targetProp = cur_sub_sub_prop_node || cur_sub_prop_node || cur_prop_node;
-              if (targetProp && targetProp !== cur_target_container && !currentEnumContainer) {
+              if (targetProp && !currentEnumContainer) {
                 currentEnumContainer = targetProp.children.find(c => c.label === "Values");
                 if (!currentEnumContainer) {
                   currentEnumContainer = createNode("Values", null, false, getCellMeta(pRowObj, 0), rowVersions);
@@ -2690,7 +2691,7 @@
               continue;
             }
 
-            // Parse Enum value entries and attach them directly to the active enum container
+            // Parse Enum value entries
             if (isParsingEnumTable && currentEnumContainer && pColATrim && !pLine[2]) {
               const valNode = createNode(pColATrim, pColBTrim || null, false, getCellMeta(pRowObj, 0), rowVersions);
               currentEnumContainer.children.push(valNode);
@@ -2698,6 +2699,7 @@
               continue;
             }
 
+          
             
             // 5. Ignore table headers and metadata
             if (
