@@ -2856,12 +2856,12 @@
               
               if (isMembersProp) {
                 existingNode = cur_target_container.children.find(c => c.label.toLowerCase() === "members");
-              } else if (hasMultipleTablesForResource && isNewTableSection && cur_target_container === resourceRoot) {
-                existingNode = cur_target_container.children.find(
-                  c => c.label.toLowerCase() === propName.toLowerCase() &&
-                    (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
-                );
-              }
+              // } else if (hasMultipleTablesForResource && isNewTableSection && cur_target_container === resourceRoot) {
+              //   existingNode = cur_target_container.children.find(
+              //     c => c.label.toLowerCase() === propName.toLowerCase() &&
+              //       (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
+              //   );
+              // }
               if (existingNode) {
                 // Merge requirements into existing node for cross-table continuation
                 cur_prop_node = existingNode;
