@@ -2504,6 +2504,8 @@
           const isAuxiliaryType = AUXILIARY_COMPLEX_TYPES.some(t => t.toLowerCase() === detectedResourceName.toLowerCase());
           const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions, isAuxiliaryType);
           let cur_target_container = resourceRoot;
+          let hasMultipleTablesForResource = false;
+          
 
           let rowDescIdx = i + 1;
           if (rowDescIdx < rawRows.length && rawRows[rowDescIdx]) {
@@ -2648,6 +2650,7 @@
 
             // 5.1 & 5.2: Detect Table Boundaries
             if (/^Table\s+\d+:/i.test(pColATrim)) {
+              hasMultipleTablesForResource = true;
               if (pColATrimLower.includes("values")) {
                 // Supplementary Enum table (e.g. Table 77: ... Values)
                 isParsingEnumTable = true;
@@ -2827,21 +2830,40 @@
               attachProfileRequirements(cur_sub_prop_node, reqs, pRowObj, rowVersions);
               attachSpecialRequirements(cur_sub_prop_node, specialReqsRaw, pRowObj, rowVersions);
               cur_prop_node.children.push(cur_sub_prop_node);
+            // Level 0: Root Properties (Handles multi-table deduplication while keeping distinct members)
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
-              // Level 0 (no leading spaces) -> root property under current active container
               const propName = pColA.trim();
-              cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
 
-              if (pColB.trim()) cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
-              attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
-              attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              // Check for duplicate properties across tables only if multiple tables exist and purposes match
+              let existingNode = null;
+              if (hasMultipleTablesForResource) {
+                existingNode = cur_target_container.children.find(
+                  c => c.label.toLowerCase() === propName.toLowerCase() && 
+                       (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
+                );
+              }
+
+              if (existingNode) {
+                // Merge requirements into existing node for cross-table continuation
+                cur_prop_node = existingNode;
+                attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+                attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              } else {
+                // Spawn a new distinct node (preserves separate entries like subsystem vs device CommStatus)
+                cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+                if (pColB.trim()) {
+                  cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+                }
+                attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+                attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
+
+                cur_target_container.children.push(cur_prop_node);
+              }
 
               isParsingEnumTable = false;
               currentEnumContainer = null;
 
-              // الإضافة الصحيحة الوحيدة للحاوية النشطة:
-              cur_target_container.children.push(cur_prop_node);
-
+              // Clear lower tier pointers so following rows inherit clean parent references
               cur_sub_prop_node = null;
               cur_sub_sub_prop_node = null;
               cur_sub_sub_sub_prop_node = null;
