@@ -2607,26 +2607,37 @@
               continue;
             }
 
+// -------------------------------------------------------------------------
+            // 2. Enum Table Header Rows: Health, HealthRollup, State
+            //    Bind to existing property ONLY if it is followed by an Enum Values table
             // -------------------------------------------------------------------------
-            // 2. Enum Table Header Rows: Health, HealthRollup, State (Rows 895, 903, 911)
-            //    Bind to the existing property instead of creating a duplicate node
-            // -------------------------------------------------------------------------
-
-
-            
             if (cur_target_container && !pLine[2]) {
-              const matchedProp = cur_target_container.children.find(
-                c => c.label.toLowerCase() === pColATrimLower
-              );
-              if (matchedProp) {
-                cur_prop_node = matchedProp;
-                cur_sub_prop_node = null;
-                cur_sub_sub_prop_node = null;
-                cur_sub_sub_sub_prop_node = null;
-                isParsingEnumTable = false;
-                currentEnumContainer = null;
-                rIndex++;
-                continue;
+              // نفحص السطور القادمة للتأكد من وجود جدول Values تحت هذا السطر
+              let nextIdx = rIndex + 1;
+              let isFollowedByEnumTable = false;
+              while (nextIdx < Math.min(rawRows.length, rIndex + 4)) {
+                const nextText = String(rawRows[nextIdx]?.values?.[0] || "").toLowerCase();
+                if (nextText.includes("values for") || nextText.includes("values")) {
+                  isFollowedByEnumTable = true;
+                  break;
+                }
+                nextIdx++;
+              }
+
+              if (isFollowedByEnumTable) {
+                const matchedProp = cur_target_container.children.find(
+                  c => c.label.toLowerCase() === pColATrimLower
+                );
+                if (matchedProp) {
+                  cur_prop_node = matchedProp;
+                  cur_sub_prop_node = null;
+                  cur_sub_sub_prop_node = null;
+                  cur_sub_sub_sub_prop_node = null;
+                  isParsingEnumTable = false;
+                  currentEnumContainer = null;
+                  rIndex++;
+                  continue;
+                }
               }
             }
 
