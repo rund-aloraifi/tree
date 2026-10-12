@@ -2863,22 +2863,30 @@
               //       (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
               //   );
               // }
-              if (existingNode) {
-                // Merge requirements into existing node for cross-table continuation
-                cur_prop_node = existingNode;
-                attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
-                attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
-              } else {
-                // Spawn a new distinct node (preserves separate entries like subsystem vs device CommStatus)
-                cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
-                if (pColB.trim()) {
-                  cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
-                }
-                attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
-                attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              // if (existingNode) {
+              //   // Merge requirements into existing node for cross-table continuation
+              //   cur_prop_node = existingNode;
+              //   attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+              //   attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              // } else {
+              //   // Spawn a new distinct node (preserves separate entries like subsystem vs device CommStatus)
+              //   cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              //   if (pColB.trim()) {
+              //     cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
+              //   }
+              //   attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+              //   attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
 
-                cur_target_container.children.push(cur_prop_node);
+              //   cur_target_container.children.push(cur_prop_node);
+              // }
+
+              cur_prop_node = createNode(propName, null, false, getCellMeta(pRowObj, 0), rowVersions);
+              if (pColB.trim()) {
+                cur_prop_node.children.push(createNode("Purpose", pColB.trim(), false, getCellMeta(pRowObj, 1), rowVersions));
               }
+              attachProfileRequirements(cur_prop_node, reqs, pRowObj, rowVersions);
+              attachSpecialRequirements(cur_prop_node, specialReqsRaw, pRowObj, rowVersions);
+              cur_target_container.children.push(cur_prop_node);
 
               isParsingEnumTable = false;
               currentEnumContainer = null;
