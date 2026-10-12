@@ -3025,6 +3025,35 @@
         });
       }
 
+      // function deduplicateChildNodes(node) {
+      //   if (!node.children || node.children.length <= 1) return;
+      //   const uniqueMap = new Map();
+      //   const cleanChildren = [];
+
+      //   node.children.forEach(child => {
+      //     const key = child.label.trim().toLowerCase();
+      //     if (uniqueMap.has(key)) {
+      //       const existing = uniqueMap.get(key);
+      //       if (child.children && child.children.length > 0) {
+      //         child.children.forEach(subChild => {
+      //           if (!existing.children.some(e => e.label.toLowerCase() === subChild.label.toLowerCase())) {
+      //             existing.children.push(subChild);
+      //           }
+      //         });
+      //       }
+      //       if (existing.value === null && child.value !== null) {
+      //         existing.value = child.value;
+      //       }
+      //     } else {
+      //       uniqueMap.set(key, child);
+      //       cleanChildren.push(child);
+      //     }
+      //   });
+
+      //   node.children = cleanChildren;
+      //   node.children.forEach(c => deduplicateChildNodes(c));
+      // }
+
       function deduplicateChildNodes(node) {
         if (!node.children || node.children.length <= 1) return;
         const uniqueMap = new Map();
@@ -3032,7 +3061,11 @@
 
         node.children.forEach(child => {
           const key = child.label.trim().toLowerCase();
-          if (uniqueMap.has(key)) {
+
+          // <--- المنطق المعكوس: الدمج يعمل فقط وحصراً لـ members أو الجداول المتعددة --->
+          const isMergeTarget = key === "members" || key.startsWith("table ") || /^table\s+\d+:/i.test(key);
+
+          if (isMergeTarget && uniqueMap.has(key)) {
             const existing = uniqueMap.get(key);
             if (child.children && child.children.length > 0) {
               child.children.forEach(subChild => {
@@ -3045,7 +3078,10 @@
               existing.value = child.value;
             }
           } else {
-            uniqueMap.set(key, child);
+            // أي خاصية أخرى (مثل IOModules أو CommStatus) تُحفظ كعقدة جديدة ومستقلة دائماً
+            if (isMergeTarget) {
+              uniqueMap.set(key, child);
+            }
             cleanChildren.push(child);
           }
         });
