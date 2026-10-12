@@ -2838,9 +2838,11 @@
             // Level 0: Root Properties (Handles multi-table deduplication while keeping distinct members)
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
               const propName = pColA.trim();
-
+              const isMembersProp = propName.toLowerCase() === "members";
+              let existingNode = isMembersProp 
+                ? cur_target_container.children.find(c => c.label.toLowerCase() === "members") 
+                : null;
               // Check for duplicate properties across tables only if multiple tables exist and purposes match
-              let existingNode = null;
               if (hasMultipleTablesForResource) {
                 existingNode = cur_target_container.children.find(
                   c => c.label.toLowerCase() === propName.toLowerCase() && 
