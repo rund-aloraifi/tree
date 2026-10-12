@@ -2505,6 +2505,7 @@
           const resourceRoot = createNode(detectedResourceName, null, false, getCellMeta(rowObj, 0), resVersions, isAuxiliaryType);
           let cur_target_container = resourceRoot;
           let hasMultipleTablesForResource = false;
+          let isNewTableSection = false;
           
 
           let rowDescIdx = i + 1;
@@ -2667,6 +2668,7 @@
             // 5.1 & 5.2: Detect Table Boundaries
             if (/^Table\s+\d+:/i.test(pColATrim)) {
               hasMultipleTablesForResource = true;
+              isNewTableSection = true;
               if (pColATrimLower.includes("values")) {
                 // Supplementary Enum table (e.g. Table 77: ... Values)
                 isParsingEnumTable = true;
@@ -2850,17 +2852,16 @@
             } else if (pColA.trim() && !pColA.startsWith("Profile") && pColA !== "ResourceRequirement" && pColA !== "Resource MinVersion") {
               const propName = pColA.trim();
               const isMembersProp = propName.toLowerCase() === "members";
-              let existingNode = isMembersProp 
-                ? cur_target_container.children.find(c => c.label.toLowerCase() === "members") 
-                : null;
-              // Check for duplicate properties across tables only if multiple tables exist and purposes match
-              if (hasMultipleTablesForResource) {
+              let existingNode = null;
+              
+              if (isMembersProp) {
+                existingNode = cur_target_container.children.find(c => c.label.toLowerCase() === "members");
+              } else if (hasMultipleTablesForResource && isNewTableSection && cur_target_container === resourceRoot) {
                 existingNode = cur_target_container.children.find(
-                  c => c.label.toLowerCase() === propName.toLowerCase() && 
-                       (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
+                  c => c.label.toLowerCase() === propName.toLowerCase() &&
+                    (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
                 );
               }
-
               if (existingNode) {
                 // Merge requirements into existing node for cross-table continuation
                 cur_prop_node = existingNode;
@@ -2885,6 +2886,7 @@
               cur_sub_prop_node = null;
               cur_sub_sub_prop_node = null;
               cur_sub_sub_sub_prop_node = null;
+              isNewTableSection = false;
             }
 
             rIndex++;
