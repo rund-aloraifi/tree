@@ -2611,21 +2611,26 @@
             // 2. Enum Table Header Rows: Health, HealthRollup, State (Rows 895, 903, 911)
             //    Bind to the existing property instead of creating a duplicate node
             // -------------------------------------------------------------------------
-            if (cur_target_container && !pLine[2]) {
-              const matchedProp = cur_target_container.children.find(
-                c => c.label.toLowerCase() === pColATrimLower
-              );
-              if (matchedProp) {
-                cur_prop_node = matchedProp;
-                cur_sub_prop_node = null;
-                cur_sub_sub_prop_node = null;
-                cur_sub_sub_sub_prop_node = null;
-                isParsingEnumTable = false;
-                currentEnumContainer = null;
-                rIndex++;
-                continue;
-              }
-            }
+
+
+            
+            // if (cur_target_container && !pLine[2]) {
+            //   const matchedProp = cur_target_container.children.find(
+            //     c => c.label.toLowerCase() === pColATrimLower
+            //   );
+            //   if (matchedProp) {
+            //     cur_prop_node = matchedProp;
+            //     cur_sub_prop_node = null;
+            //     cur_sub_sub_prop_node = null;
+            //     cur_sub_sub_sub_prop_node = null;
+            //     isParsingEnumTable = false;
+            //     currentEnumContainer = null;
+            //     rIndex++;
+            //     continue;
+            //   }
+            // }
+
+            
 
             // -------------------------------------------------------------------------
             // 3. Skip table descriptions immediately preceding Table XX (Rows 896, 904, 912)
