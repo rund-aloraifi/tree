@@ -2843,12 +2843,12 @@
                 ? cur_target_container.children.find(c => c.label.toLowerCase() === "members") 
                 : null;
               // Check for duplicate properties across tables only if multiple tables exist and purposes match
-              if (hasMultipleTablesForResource) {
-                existingNode = cur_target_container.children.find(
-                  c => c.label.toLowerCase() === propName.toLowerCase() && 
-                       (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
-                );
-              }
+              // if (hasMultipleTablesForResource) {
+              //   existingNode = cur_target_container.children.find(
+              //     c => c.label.toLowerCase() === propName.toLowerCase() && 
+              //          (!pColB.trim() || c.children.some(child => child.label === "Purpose" && child.value === pColB.trim()))
+              //   );
+              // }
 
               if (existingNode) {
                 // Merge requirements into existing node for cross-table continuation
